@@ -30,6 +30,10 @@ export * from "./events/index"
 
 export { createElement } from "react"
 
+// Extensibility API: lets external packages register custom JSX components with
+// the reconciler (e.g. a parametric <enclosure /> from a mechanical-CAD package).
+export { extendCatalogue, catalogue } from "./fiber/catalogue"
+
 export { kicadFootprintStrings } from "@tscircuit/props"
 
 import "./register-catalogue"
