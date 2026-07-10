@@ -1857,6 +1857,7 @@ export class NormalComponent<
       model_origin_alignment: "center_of_component_on_board_surface",
       anchor_alignment: "center_of_component_on_board_surface",
       model_origin_position: cadModel?.modelOriginPosition,
+      size: cadModel?.size,
       footprinter_string: footprinterStringForCadComponent,
       show_as_translucent_model: this._parsedProps.showAsTranslucentModel,
     } as any)
