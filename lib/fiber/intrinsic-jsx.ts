@@ -95,6 +95,7 @@ export interface TscircuitElements {
   copperpour: Props.CopperPourProps
   analogsimulation: Props.AnalogSimulationProps
   spicemodel: Props.SpiceModelProps
+  cutoutaperture: Props.CutoutApertureProps
   fiducial: Props.FiducialProps
   jscad: any
 }
