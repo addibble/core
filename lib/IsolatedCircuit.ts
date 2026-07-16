@@ -10,12 +10,14 @@ import type { PrimitiveComponent } from "./components/base-components/PrimitiveC
 import type { RenderPhase } from "./components/base-components/Renderable"
 import type { BoardI } from "./components/normal-components/BoardI"
 import { Group } from "./components/primitive-components/Group"
+import { getCircuitJsonPostprocessors } from "./circuit-json-postprocessor-registry"
 import type { RootCircuitEventName } from "./events"
 import { createInstanceFromReactElement } from "./fiber/create-instance-from-react-element"
 
 export class IsolatedCircuit {
   firstChild: PrimitiveComponent | null = null
   children: PrimitiveComponent[]
+  externalReactElements: PrimitiveComponent[] = []
   db: CircuitJsonUtilObjects
   root: IsolatedCircuit | null = null
   isRootCircuit = false
@@ -172,7 +174,12 @@ export class IsolatedCircuit {
       return
     }
 
-    if (this.children.length === 1 && this.children[0].isGroup) {
+    if (
+      this.children.length === 1 &&
+      (this.children[0].isGroup ||
+        ("isRootContainer" in this.children[0] &&
+          this.children[0].isRootContainer))
+    ) {
       this.firstChild = this.children[0]
       return
     }
@@ -191,6 +198,16 @@ export class IsolatedCircuit {
     const { firstChild, db } = this
     if (!firstChild) throw new Error("IsolatedCircuit has no root component")
     firstChild.parent = this as any
+    const collectExternalElements = (component: PrimitiveComponent): void => {
+      if (
+        "externalReactElementType" in component &&
+        !this.externalReactElements.includes(component)
+      ) {
+        this.externalReactElements.push(component)
+      }
+      for (const child of component.children) collectExternalElements(child)
+    }
+    collectExternalElements(firstChild)
     firstChild.runRenderCycle()
     this._hasUnrenderedUpdatesFromAsyncEffects = false
     this._hasRenderedAtleastOnce = true
@@ -241,7 +258,11 @@ export class IsolatedCircuit {
 
   getCircuitJson(): AnyCircuitElement[] {
     if (!this._hasRenderedAtleastOnce) this.render()
-    return this.db.toArray()
+    let circuitJson = this.db.toArray()
+    for (const postprocessor of getCircuitJsonPostprocessors()) {
+      circuitJson = postprocessor({ circuit: this, circuitJson })
+    }
+    return circuitJson
   }
 
   toJson(): AnyCircuitElement[] {

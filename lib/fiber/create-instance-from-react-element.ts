@@ -18,6 +18,8 @@ import { InvalidProps } from "lib/errors/InvalidProps"
 import { identity } from "transformation-matrix"
 import type { RootCircuit } from "lib/RootCircuit"
 import { createErrorPlaceholderComponent } from "lib/components/primitive-components/ErrorPlaceholder"
+import { ExternalReactElement } from "lib/components/primitive-components/ExternalReactElement"
+import { getExternalReactElementRegistration } from "./external-react-element-registry"
 
 export type ReactSubtree = {
   element: ReactElement // TODO rename to "reactElement"
@@ -60,6 +62,17 @@ const hostConfig: HostConfig<
     const target = catalogue[type]
 
     if (!target) {
+      const externalRegistration = getExternalReactElementRegistration(type)
+      if (externalRegistration) {
+        return prepare(
+          new ExternalReactElement(
+            type,
+            externalRegistration.parseProps(props),
+            { isRootContainer: externalRegistration.isRootContainer },
+          ),
+          {},
+        )
+      }
       if (Object.keys(catalogue).length === 0) {
         throw new Error(
           "No components registered in catalogue, did you forget to import lib/register-catalogue in your test file?",
