@@ -31,6 +31,17 @@ export * from "./events/index"
 
 export { createElement } from "react"
 
+export {
+  registerExternalReactElement,
+  unregisterExternalReactElement,
+  type ExternalReactElementRegistration,
+} from "./fiber/external-react-element-registry"
+export {
+  registerCircuitJsonPostprocessor,
+  unregisterCircuitJsonPostprocessor,
+  type CircuitJsonPostprocessor,
+  type CircuitJsonPostprocessorInput,
+} from "./circuit-json-postprocessor-registry"
 export { kicadFootprintStrings } from "@tscircuit/props"
 
 import "./register-catalogue"

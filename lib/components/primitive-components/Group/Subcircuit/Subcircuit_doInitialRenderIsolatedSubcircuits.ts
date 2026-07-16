@@ -1,5 +1,6 @@
 import type { AnyCircuitElement } from "circuit-json"
 import { IsolatedCircuit } from "lib/IsolatedCircuit"
+import type { PrimitiveComponent } from "lib/components/base-components/PrimitiveComponent"
 import type { ISubcircuit } from "./ISubcircuit"
 
 /**
@@ -21,6 +22,14 @@ export function Subcircuit_doInitialRenderIsolatedSubcircuits(
   subcircuit: ISubcircuit,
 ): void {
   if (!subcircuit._isIsolatedSubcircuit) return
+
+  const hasExternalElement = (component: PrimitiveComponent): boolean =>
+    component.children.some(
+      (child) =>
+        "externalReactElementType" in child ||
+        hasExternalElement(child),
+    )
+  if (hasExternalElement(subcircuit)) return
 
   // Skip if already has isolated circuit JSON
   if (subcircuit._isolatedCircuitJson) return
