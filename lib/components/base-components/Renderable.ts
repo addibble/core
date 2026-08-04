@@ -71,6 +71,13 @@ export const orderedRenderPhases = [
   "PcbDesignRuleChecks",
   "SilkscreenOverlapAdjustment",
   "CadModelRender",
+  // Runs after CadModelRender so every part's `cad_component` already exists.
+  // Enclosure geometry is derived from the parts it has to contain, and phases
+  // walk the tree depth-first in sibling declaration order, so sharing a phase
+  // with the parts made the result depend on whether the enclosure happened to
+  // be declared before or after the board -- silently, since a missing body
+  // just falls back to footprint dimensions.
+  "EnclosureRender",
   "PartsEngineRender",
   "PartOrientationAnalysis",
   "SupplierFootprintMismatchWarning",
@@ -141,7 +148,16 @@ const asyncPhaseDependencies: Partial<Record<RenderPhase, RenderPhase[]>> = {
     "PcbFootprintStringRender",
     "FetchPartFootprint",
   ],
-  CadModelRender: ["PcbFootprintStringRender", "FetchPartFootprint"],
+  CadModelRender: [
+    "RenderIsolatedSubcircuits",
+    "PcbFootprintStringRender",
+    "FetchPartFootprint",
+  ],
+  EnclosureRender: [
+    "RenderIsolatedSubcircuits",
+    "PcbFootprintStringRender",
+    "FetchPartFootprint",
+  ],
   PartsEngineRender: ["PcbFootprintStringRender", "FetchPartFootprint"],
   PartOrientationAnalysis: [
     "PcbFootprintStringRender",

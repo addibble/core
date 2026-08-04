@@ -13,6 +13,7 @@ import {
   type RenderGLTFToPNGFromGLBOptions as PoppyglOptions,
   renderGLTFToPNGFromGLB,
 } from "poppygl"
+import { captionPng } from "./caption-png"
 
 /** [0,1] percentage of the image that is different */
 const ACCEPTABLE_DIFF_FRACTION = 0.01
@@ -26,6 +27,13 @@ export type Match3dSnapshotOptions = {
   camPos?: CameraPosition
   cameraPreset?: "bottom_angled" | "top_down_orthographic"
   snapshotSuffix?: string
+  /**
+   * Printed into the top of the snapshot. Say what the render is supposed to
+   * show: a 3D view of the wrong thing still looks like a plausible render, so
+   * a reviewer reading the diff otherwise has no way to tell a legitimate
+   * change from a regression that got rebaselined by reflex.
+   */
+  caption?: string | string[]
 }
 
 export async function resolvePoppyglOptions(
@@ -149,7 +157,12 @@ async function save3dSnapshotOfCircuitJson({
     : Buffer.from(gltfOrGlb as any)
   const resolvedRenderOpts = await resolvePoppyglOptions(soup, options)
   const png = await renderGLTFToPNGFromGLB(glbBuffer, resolvedRenderOpts)
-  const content = png
+  const content = options?.caption
+    ? captionPng(
+        png,
+        Array.isArray(options.caption) ? options.caption : [options.caption],
+      )
+    : png
 
   if (!fs.existsSync(snapshotDir)) {
     fs.mkdirSync(snapshotDir, { recursive: true })

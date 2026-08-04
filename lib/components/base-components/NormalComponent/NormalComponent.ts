@@ -1936,6 +1936,16 @@ export class NormalComponent<
       model_origin_alignment: "center_of_component_on_board_surface",
       anchor_alignment: "center_of_component_on_board_surface",
       model_origin_position: cadModel?.modelOriginPosition,
+      // The authored extent, carried on the record so consumers can read the
+      // part's mechanical facts from one place instead of reaching back into
+      // props -- which only works for the object form of `cadModel`.
+      ...(cadModel?.size ? { size: cadModel.size as never } : {}),
+      ...((cadModel as { modelBounds?: unknown } | undefined)?.modelBounds
+        ? {
+            model_bounds: (cadModel as { modelBounds?: unknown })
+              .modelBounds as never,
+          }
+        : {}),
       footprinter_string: footprinterStringForCadComponent,
       show_as_translucent_model: this._parsedProps.showAsTranslucentModel,
     } as any)

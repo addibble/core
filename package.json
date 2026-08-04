@@ -27,7 +27,9 @@
     "build:benchmarking": "bun build --experimental-html ./benchmarking/website/index.html --outdir ./benchmarking-dist",
     "build:benchmarking:watch": "chokidar \"./{benchmarking,lib}/**/*.{ts,tsx}\" -c 'bun build --experimental-html ./benchmarking/website/index.html --outdir ./benchmarking-dist'",
     "start:benchmarking": "concurrently \"bun run build:benchmarking:watch\" \"live-server ./benchmarking-dist\"",
-    "generate-test-plan": "bun run scripts/generate-test-plan.ts"
+    "generate-test-plan": "bun run scripts/generate-test-plan.ts",
+    "dump:prefab-board": "bun run scripts/dump-prefab-board-circuit-json.ts",
+    "watch:prefab-board": "bun --watch scripts/dump-prefab-board-circuit-json.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
@@ -60,6 +62,7 @@
     "@tscircuit/soup-util": "^0.0.41",
     "@types/bun": "^1.2.16",
     "@types/debug": "^4.1.12",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-reconciler": "^0.28.9",
@@ -84,6 +87,7 @@
     "live-server": "^1.2.2",
     "minicssgrid": "^0.0.9",
     "pkg-pr-new": "^0.0.37",
+    "pngjs": "^7.0.0",
     "poppygl": "^0.0.26",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

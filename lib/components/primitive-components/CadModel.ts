@@ -130,6 +130,8 @@ export class CadModel extends PrimitiveComponent<typeof cadmodelProps> {
       model_origin_alignment: "center_of_component_on_board_surface",
       anchor_alignment: "center_of_component_on_board_surface",
       model_origin_position: props.modelOriginPosition,
+      ...(props.size ? { size: props.size } : {}),
+      ...(props.modelBounds ? { model_bounds: props.modelBounds } : {}),
       source_component_id: parent.source_component_id,
       model_unit_to_mm_scale_factor:
         typeof props.modelUnitToMmScale === "number"

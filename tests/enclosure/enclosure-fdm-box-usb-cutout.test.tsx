@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { enclosure } from "lib"
+import { assembly, enclosure } from "lib"
 import type { SolverStartedEvent } from "lib/events"
 import { getTestFixture } from "tests/fixtures/get-test-fixture"
 
@@ -14,7 +14,7 @@ test("generates an FDM enclosure and USB-C aperture with the enclosure solver", 
   })
 
   circuit.add(
-    <group>
+    <assembly.device name="usb-device">
       <board name="main-board" width="40mm" height="24mm" routingDisabled>
         <connector
           name="USB1"
@@ -63,7 +63,7 @@ test("generates an FDM enclosure and USB-C aperture with the enclosure solver", 
         </connector>
       </board>
       <enclosure.fdm.box boardRef=".main-board" />
-    </group>,
+    </assembly.device>,
   )
 
   await circuit.renderUntilSettled()
@@ -76,19 +76,33 @@ test("generates an FDM enclosure and USB-C aperture with the enclosure solver", 
   })
   expect(enclosureSolverEvent?.solverParams.apertures[0]).toMatchObject({
     shape: "pill",
-    wall: "front",
-    offset: 0,
+    // The part is at y=+11 on a 24mm-tall board and authors `from_top`, which
+    // is +Y, so its opening pierces the +Y wall.
+    face: "y_pos",
   })
-  expect(enclosureSolverEvent?.solverParams.apertures[0].centerZ).toBeCloseTo(
-    5.7,
+  expect(enclosureSolverEvent?.solverParams.apertures[0].center.x).toBeCloseTo(
+    0,
   )
+  // Core leaves the offsets unset when the part does not author them;
+  // create-fdm-enclosure resolves the compatibility fallback (half the
+  // aperture's own 3.6mm + 2x0.5mm margin extent = 2.3mm).
+  expect(
+    enclosureSolverEvent?.solverParams.apertures[0].heightDimensionOffset,
+  ).toBeUndefined()
   expect(enclosureSolverEvent?.solverConstructorArgs).toEqual([
     enclosureSolverEvent?.solverParams,
   ])
-  const enclosureCadComponent = circuit.db.cad_component
-    .list()
-    .find((cadComponent) => cadComponent.model_jscad)
-  expect(enclosureCadComponent?.show_as_translucent_model).toBe(false)
+  // The enclosure ships only as a typed record; no cad_component carries a plan.
+  expect(
+    circuit.db.cad_component.list().filter((cad) => cad.model_jscad),
+  ).toHaveLength(0)
+  expect(circuit.db.cad_fdm_enclosure.list()[0]).toMatchObject({
+    show_as_translucent_model: false,
+  })
+  expect(circuit.db.source_assembly_device.list()).toHaveLength(1)
+  expect(circuit.db.source_fdm_enclosure.list()).toHaveLength(1)
+  expect(circuit.db.source_cutout_aperture.list()).toHaveLength(1)
+  expect(circuit.db.cad_fdm_enclosure.list()).toHaveLength(1)
 
   await expect(circuit).toMatchSimple3dSnapshot(import.meta.path, {
     camPos: [30, 24, 50],

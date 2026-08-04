@@ -195,3 +195,6 @@ references
 debug-output
 debug-outputs
 .github/test-plans/
+
+# vim swap files
+*.swp

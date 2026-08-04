@@ -10,6 +10,7 @@ import { inflatePcbBoard } from "../../components/primitive-components/Group/Sub
 import { inflateSourceCapacitor } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceCapacitor"
 import { inflateSourceChip } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceChip"
 import { inflateSourceConnector } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceConnector"
+import { inflateSourceCutoutApertures } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceCutoutAperture"
 import { inflateSourceDiode } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceDiode"
 import { inflateSourceFiducial } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceFiducial"
 import { inflateSourceGroup } from "../../components/primitive-components/Group/Subcircuit/inflators/inflateSourceGroup"
@@ -123,6 +124,8 @@ export const inflateCircuitJson = (
         )
     }
   }
+
+  inflateSourceCutoutApertures(inflationCtx)
 
   const sourcePorts = injectionDb.source_port.list()
   for (const sourcePort of sourcePorts) {
