@@ -146,6 +146,24 @@ circuit.selectOne("resistor") // Find first resistor
 
 ## Coordinate frames, side names, and transforms
 
+### Declare the frame at every boundary
+
+Any function or record carrying geometry states explicitly, in its docstring:
+**which frame** (footprint-local, board/circuit world, renderer scene), **what
+the axes mean**, **units** (mm throughout tscircuit), **handedness and which way
+is up**, and **whether the value is a point or a direction** — a point picks up
+translation, a direction must not. Most of the transform defects here were two
+functions silently disagreeing about which frame they were handed.
+
+### Validate a convention before copying it
+
+Matching surrounding code is the default *only* once you have confirmed the
+surrounding code is intentional. Prevailing patterns in this area have
+repeatedly turned out to be bugs, or compensations for bugs elsewhere. Before
+adopting one, find its origin commit, the test that pins it, or a measurement
+that confirms it — and prefer removing a compensation at its source over adding
+a matching one.
+
 ### Canonical direction names
 
 Directions name **where something is**, in board space: +X `right`, −X `left`,
