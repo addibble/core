@@ -60,7 +60,7 @@ test("enclosure.fdm.box emits its complete typed source contract", () => {
   expect(circuit.db.source_cutout_aperture.list()[0]).toMatchObject({
     height_dimension_offset: 6.5,
   })
-  expect(circuit.db.cad_fdm_enclosure.list()).toHaveLength(1)
+  expect(circuit.db.cad_fdm_enclosure.list()).toHaveLength(2)
   expect(enclosureSolverEvent?.solverParams).toMatchObject({
     width: 40,
     height: 30,

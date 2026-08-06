@@ -86,6 +86,12 @@ export const EnclosureFdmBox_doInitialEnclosureRender = (
     )
   }
 
+  // One record per printed part, not one per enclosure. The parts are made and
+  // handled separately, and anything looking at them needs to address them
+  // separately -- hiding the lid to see the board inside is the first thing
+  // anyone does with an enclosure on screen, and it is impossible if base and
+  // lid arrive fused into a single plan.
+  //
   // Generated enclosure parts are emitted only as typed `cad_fdm_enclosure`
   // records. They deliberately do NOT get a `cad_component`: that record
   // requires PCB ownership, which forced a synthetic zero-size pcb_component
@@ -93,21 +99,25 @@ export const EnclosureFdmBox_doInitialEnclosureRender = (
   // The plan is authored in Circuit world coordinates, so none of
   // `cad_component`'s asset-normalization fields (model origin, board normal,
   // anchor, object fit) apply -- `position` alone places it.
-  db.cad_fdm_enclosure.insert({
-    source_fdm_enclosure_id: component.source_fdm_enclosure_id,
-    name: component.name,
-    position,
-    size: {
-      x: output.dimensions.width,
-      y: output.dimensions.height,
-      z: output.dimensions.depth,
-    },
-    model_jscad: output.jscadPlan,
-    model_unit_to_mm_scale_factor: 1,
-    // Presentation only: the JSCAD plan is unchanged, so exports are identical
-    // either way. An opaque box hides the board it was generated from, which is
-    // exactly what you want to see while checking openings against parts.
-    show_as_translucent_model:
-      component._parsedProps.showAsTranslucentModel ?? false,
-  })
+  //
+  // How a part is SHOWN is not recorded here. Translucency is a property of
+  // looking at the thing, not of the thing: the geometry and every export are
+  // identical either way, and the viewer already owns per-category visibility.
+  // Encoding it in the circuit JSON put a rendering preference in the artifact
+  // that manufacturing reads.
+  for (const part of output.parts) {
+    db.cad_fdm_enclosure.insert({
+      source_fdm_enclosure_id: component.source_fdm_enclosure_id,
+      name: component.name ? `${component.name}_${part.id}` : part.id,
+      enclosure_part: part.id,
+      position,
+      size: {
+        x: output.dimensions.width,
+        y: output.dimensions.height,
+        z: output.dimensions.depth,
+      },
+      model_jscad: part.jscadPlan,
+      model_unit_to_mm_scale_factor: 1,
+    })
+  }
 }

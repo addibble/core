@@ -42,7 +42,9 @@ test("an enclosure emits no synthetic source/pcb/cad component owners", () => {
   expect(typedEnclosure).toMatchObject({
     source_fdm_enclosure_id:
       circuit.db.source_fdm_enclosure.list()[0]!.source_fdm_enclosure_id,
-    name: "EN1",
+    // Each part is named for the part it is, under the enclosure's name.
+    name: "EN1_base",
+    enclosure_part: "base",
   })
   expect(typedEnclosure!.size!.x).toBeGreaterThan(20)
   expect(typedEnclosure!.size!.y).toBeGreaterThan(10)

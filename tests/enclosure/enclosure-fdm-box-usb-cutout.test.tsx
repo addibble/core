@@ -96,13 +96,14 @@ test("generates an FDM enclosure and USB-C aperture with the enclosure solver", 
   expect(
     circuit.db.cad_component.list().filter((cad) => cad.model_jscad),
   ).toHaveLength(0)
-  expect(circuit.db.cad_fdm_enclosure.list()[0]).toMatchObject({
-    show_as_translucent_model: false,
-  })
   expect(circuit.db.source_assembly_device.list()).toHaveLength(1)
   expect(circuit.db.source_fdm_enclosure.list()).toHaveLength(1)
   expect(circuit.db.source_cutout_aperture.list()).toHaveLength(1)
-  expect(circuit.db.cad_fdm_enclosure.list()).toHaveLength(1)
+  // One record per printed part: the base and the lid are separate prints, and
+  // a viewer has to be able to hide one without the other.
+  expect(
+    circuit.db.cad_fdm_enclosure.list().map((part) => part.enclosure_part),
+  ).toEqual(["base", "lid"])
 
   await expect(circuit).toMatchSimple3dSnapshot(import.meta.path, {
     camPos: [30, 24, 50],

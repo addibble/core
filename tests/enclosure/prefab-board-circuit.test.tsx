@@ -22,9 +22,10 @@ test("renders the prefab-board TSX with twelve part-owned apertures across six f
   expect(
     circuitJson.filter((element) => element.type === "source_fdm_enclosure"),
   ).toHaveLength(1)
+  // Base and lid are separate prints, so separate records.
   expect(
     circuitJson.filter((element) => element.type === "cad_fdm_enclosure"),
-  ).toHaveLength(1)
+  ).toHaveLength(2)
   expect(
     circuitJson.filter(
       (element) =>
