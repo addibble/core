@@ -42,6 +42,7 @@ test("board with resistor being passed schX and pcbX in mm", () => {
           "x": -0.25,
           "y": 0,
         },
+        "cutout_aperture_direction": undefined,
         "do_not_place": false,
         "height": 2.2,
         "insertion_direction": undefined,

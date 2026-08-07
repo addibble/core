@@ -52,6 +52,15 @@ export const getFdmEnclosureSolverInput = (
   const aperture =
     apertureComponent._parsedProps as ParsedEnclosureCutoutApertureProps
 
+  // Which way the opening faces. `cutout_aperture_direction` when the part
+  // declares one, because installation and interaction are different facts: a
+  // side-actuated switch is installed from above and actuated from the side, so
+  // its opening pierces a wall while nothing is ever inserted into it. Falling
+  // back to `insertion_direction` is right for every connector, where the cable
+  // enters through the opening it needs.
+  const apertureDirection =
+    pcbComponent.cutout_aperture_direction ?? pcbComponent.insertion_direction
+
   // A part that mates along Z exits through a horizontal face. Which one is
   // carried by the direction itself: `transformFootprintInsertionDirection`
   // inverts Z on a layer flip, because moving to the other layer is a 180
@@ -62,9 +71,9 @@ export const getFdmEnclosureSolverInput = (
   // Reading the face off the direction rather than off the mounting layer also
   // honours a part that explicitly declares the opposite side.
   const verticalFace: EnclosureFace | undefined =
-    pcbComponent.insertion_direction === "from_above"
+    apertureDirection === "from_above"
       ? "z_pos"
-      : pcbComponent.insertion_direction === "from_below"
+      : apertureDirection === "from_below"
         ? "z_neg"
         : undefined
   // Sets the datum for heightDimensionOffset. This one stays `top`/`bottom` because
@@ -92,7 +101,7 @@ export const getFdmEnclosureSolverInput = (
     // the footprint declares nothing, where a guess beats no aperture at all.
     const boardWall =
       INSERTION_DIRECTION_TO_BOARD_WALL[
-        pcbComponent.insertion_direction as keyof typeof INSERTION_DIRECTION_TO_BOARD_WALL
+        apertureDirection as keyof typeof INSERTION_DIRECTION_TO_BOARD_WALL
       ] ?? getNearestBoardWall({ point, board: pcbBoard })
     const cableDelta = pcbComponent.cable_insertion_center
       ? {

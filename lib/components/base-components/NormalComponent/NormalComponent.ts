@@ -947,6 +947,10 @@ export class NormalComponent<
         componentLayer,
         globalTransformRotation,
       ),
+      cutout_aperture_direction: this._getPcbComponentCutoutApertureDirection(
+        componentLayer,
+        globalTransformRotation,
+      ),
       source_component_id: this.source_component_id!,
       subcircuit_id: subcircuit.subcircuit_id ?? undefined,
       do_not_place: props.doNotPlace ?? false,
@@ -1170,6 +1174,7 @@ export class NormalComponent<
   private _getFootprintMetadataForPcbComponent():
     | {
         insertionDirection?: FootprintInsertionDirection
+        cutoutApertureDirection?: FootprintInsertionDirection
         originalLayer?: LayerRef
       }
     | undefined {
@@ -1180,6 +1185,8 @@ export class NormalComponent<
     if (footprintChild) {
       return {
         insertionDirection: footprintChild._parsedProps.insertionDirection,
+        cutoutApertureDirection:
+          footprintChild._parsedProps.cutoutApertureDirection,
         originalLayer: footprintChild._parsedProps.originalLayer,
       }
     }
@@ -1189,10 +1196,12 @@ export class NormalComponent<
     if (isValidElement(footprint)) {
       const footprintProps = footprint.props as {
         insertionDirection?: FootprintInsertionDirection
+        cutoutApertureDirection?: FootprintInsertionDirection
         originalLayer?: LayerRef
       }
       return {
         insertionDirection: footprintProps.insertionDirection,
+        cutoutApertureDirection: footprintProps.cutoutApertureDirection,
         originalLayer: footprintProps.originalLayer,
       }
     }
@@ -1231,6 +1240,36 @@ export class NormalComponent<
 
     return transformFootprintInsertionDirection({
       insertionDirection: footprintMetadata.insertionDirection,
+      rotationDegrees,
+      isFlipped: isFootprintFlipped({
+        componentLayer,
+        originalLayer: footprintMetadata.originalLayer,
+      }),
+    })
+  }
+
+  /**
+   * Where this part's enclosure opening faces, in board coordinates.
+   *
+   * Rides exactly the transform `insertion_direction` does -- same rotation,
+   * same layer mirroring -- because it is the same kind of fact about the part,
+   * just about a different interaction. Deriving it separately is how the two
+   * would drift apart on a rotated or bottom-mounted part.
+   *
+   * Left undefined when the footprint declares nothing, rather than defaulting
+   * to `insertionDirection` here: the fallback belongs to the consumer, which
+   * can then tell "the part says its opening faces this way" apart from "the
+   * part says nothing, so use where the cable enters".
+   */
+  protected _getPcbComponentCutoutApertureDirection(
+    componentLayer: LayerRef,
+    rotationDegrees: number = this.getGlobalTransformRotation(),
+  ): PcbComponent["cutout_aperture_direction"] | undefined {
+    const footprintMetadata = this._getFootprintMetadataForPcbComponent()
+    if (!footprintMetadata?.cutoutApertureDirection) return undefined
+
+    return transformFootprintInsertionDirection({
+      insertionDirection: footprintMetadata.cutoutApertureDirection,
       rotationDegrees,
       isFlipped: isFootprintFlipped({
         componentLayer,
