@@ -45,6 +45,7 @@ import {
 import {
   isFootprintFlipped,
   transformFootprintInsertionDirection,
+  transformFootprintInsertionDirectionVector,
 } from "lib/utils/pcb/transform-footprint-insertion-direction"
 import {
   type PortArrangement,
@@ -1274,6 +1275,37 @@ export class NormalComponent<
       isFlipped: isFootprintFlipped({
         componentLayer,
         originalLayer: footprintMetadata.originalLayer,
+      }),
+    })
+  }
+
+  /**
+   * The enclosure aperture's outward axis as a continuous unit direction in
+   * board XYZ (+Z above the board). It is a direction, not a point, and receives
+   * the same rotation and layer transform as the footprint's pads.
+   *
+   * The emitted named direction is deliberately quantized because it chooses a
+   * Cartesian wall. A cutting tool must use this unquantized companion instead:
+   * at +45 degrees the chosen wall can still be x_neg while the physical axis
+   * is exactly halfway toward y_neg, and reconstructing that angle from the
+   * component rotation loses which side of the tie core selected.
+   */
+  _getEnclosureApertureAxisDirection(
+    componentLayer: LayerRef,
+    rotationDegrees: number = this.getGlobalTransformRotation(),
+  ): { x: number; y: number; z: number } | undefined {
+    const footprintMetadata = this._getFootprintMetadataForPcbComponent()
+    const apertureDirection =
+      footprintMetadata?.cutoutApertureDirection ??
+      footprintMetadata?.insertionDirection
+    if (!apertureDirection) return undefined
+
+    return transformFootprintInsertionDirectionVector({
+      insertionDirection: apertureDirection,
+      rotationDegrees,
+      isFlipped: isFootprintFlipped({
+        componentLayer,
+        originalLayer: footprintMetadata?.originalLayer,
       }),
     })
   }

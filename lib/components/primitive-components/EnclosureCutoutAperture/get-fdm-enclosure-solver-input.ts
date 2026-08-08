@@ -3,7 +3,7 @@ import type {
   EnclosureFace,
 } from "@tscircuit/create-fdm-enclosure"
 import type { ParsedEnclosureCutoutApertureProps } from "@tscircuit/props"
-import type { CadComponent, PcbBoard } from "circuit-json"
+import type { CadComponent, PcbBoard, PcbComponent } from "circuit-json"
 import type { Board } from "../../normal-components/Board"
 import type { EnclosureCutoutAperture } from "./EnclosureCutoutAperture"
 import { getComponentBody } from "./get-component-body"
@@ -153,14 +153,38 @@ export const getFdmEnclosureSolverInput = (
     boardSurfaceZ,
   })
 
+  const apertureDirectionOwner = owner as typeof owner & {
+    _getEnclosureApertureAxisDirection?: (
+      componentLayer: PcbComponent["layer"],
+      rotationDegrees: number,
+    ) => { x: number; y: number; z: number } | undefined
+  }
+  // Continuous board-space direction of the interaction axis. The named
+  // `apertureDirection` above is intentionally quantized to select one Cartesian
+  // wall; it cannot orient an oblique cut, especially at the +/-45-degree tie.
+  // Ask the component for the paired vector produced from the same footprint
+  // transform instead of re-deriving an angle from its final rotation.
+  const apertureAxisDirection =
+    apertureDirectionOwner?._getEnclosureApertureAxisDirection?.(
+      pcbComponent.layer,
+      pcbComponent.rotation ?? 0,
+    )
+
   const commonInput = {
     face,
     center,
     boardSide,
+    /**
+     * Unit direction in board XYZ (+Z above the board), not a translated point.
+     * `create-fdm-enclosure` measures it against the selected face normal to get
+     * the exact signed incidence angle.
+     */
+    apertureAxisDirection,
     // A part on the lid or the floor can be placed at any rotation, and its
     // opening has to turn with it. This is the rotation the model is actually
-    // rendered at, so an opening stays aligned with the body it serves. The
-    // solver ignores it on the side faces, whose openings are fixed by the wall.
+    // rendered at, so an opening stays aligned with the body it serves. Side
+    // faces use `apertureAxisDirection` instead; their rotation is an approach
+    // angle in board XY, not a roll within the wall.
     rotation: cadComponent?.rotation?.z ?? pcbComponent.rotation ?? undefined,
     depth: aperture.depth,
     componentBody,
