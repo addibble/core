@@ -95,10 +95,12 @@ export const getFdmEnclosureSolverInput = (
     }
   } else {
     const point = pcbComponent.cable_insertion_center ?? pcbComponent.center
-    // `insertion_direction` is authoritative: core already rotated it out of the
-    // footprint's frame and mirrored it for the mounting layer, so it names the
-    // board edge this part is reached from. Nearest-edge is only consulted when
-    // the footprint declares nothing, where a guess beats no aperture at all.
+    // The named direction is the nearest Cartesian wall to the physical axis,
+    // already rotated out of the footprint frame and mirrored for the layer. It
+    // is an initial face choice; with a continuous axis the enclosure resolves
+    // the first wall that ray actually intersects, which can differ near a
+    // corner. Nearest-edge is only consulted when the footprint declares no
+    // direction, where a guess beats no aperture at all.
     const boardWall =
       INSERTION_DIRECTION_TO_BOARD_WALL[
         apertureDirection as keyof typeof INSERTION_DIRECTION_TO_BOARD_WALL
@@ -114,9 +116,17 @@ export const getFdmEnclosureSolverInput = (
       (boardWall === "x_neg" || boardWall === "x_pos"
         ? Math.abs(cableDelta.x) >= Math.abs(cableDelta.y)
         : Math.abs(cableDelta.y) >= Math.abs(cableDelta.x))
-    const tangentPoint = cableProjectionMatchesWall
-      ? point
-      : pcbComponent.center
+    // A declared direction gives the enclosure a physical axis. Its stable datum
+    // is the same component centre the body rotates around. The inferred
+    // `cable_insertion_center` is chosen from one side of the component's
+    // axis-aligned bounds; when direction quantization switches sides near a
+    // corner, that point jumps discontinuously and is not on the rotated body
+    // axis. It remains useful only for the no-direction nearest-edge fallback.
+    const tangentPoint = apertureDirection
+      ? pcbComponent.center
+      : cableProjectionMatchesWall
+        ? point
+        : pcbComponent.center
     face = getSolverWall(boardWall)
     center = {
       x: tangentPoint.x - pcbBoard.center.x,

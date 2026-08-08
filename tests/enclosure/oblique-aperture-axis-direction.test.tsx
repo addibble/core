@@ -58,11 +58,18 @@ test("core passes the unquantized aperture axis paired with its selected face", 
     )
     circuit.render()
 
-    return enclosureSolverEvent?.solverParams.apertures[0]
+    const pcbComponent = circuit.db.pcb_component.list()[0]!
+    return {
+      aperture: enclosureSolverEvent?.solverParams.apertures[0],
+      componentCenter: pcbComponent.center,
+      cableInsertionCenter: pcbComponent.cable_insertion_center,
+    }
   }
 
-  const negativeTie = renderAt(-45)
-  const positiveTie = renderAt(45)
+  const negativeResult = renderAt(-45)
+  const positiveResult = renderAt(45)
+  const negativeTie = negativeResult.aperture
+  const positiveTie = positiveResult.aperture
   const diagonal = Math.SQRT1_2
 
   expect(["x_neg", "y_pos"]).toContain(negativeTie.face)
@@ -74,4 +81,13 @@ test("core passes the unquantized aperture axis paired with its selected face", 
   expect(positiveTie.apertureAxisDirection.x).toBeCloseTo(-diagonal)
   expect(positiveTie.apertureAxisDirection.y).toBeCloseTo(-diagonal)
   expect(positiveTie.apertureAxisDirection.z).toBe(0)
+
+  // The inferred cable point comes from a quantized side of the component's
+  // axis-aligned bounds and jumps at a face transition. The aperture axis must
+  // instead pass through the stable datum the body itself rotates around.
+  expect(negativeResult.cableInsertionCenter).not.toEqual(
+    negativeResult.componentCenter,
+  )
+  expect(negativeTie.center).toEqual(negativeResult.componentCenter)
+  expect(positiveTie.center).toEqual(positiveResult.componentCenter)
 })
