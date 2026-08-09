@@ -190,12 +190,16 @@ export const getFdmEnclosureSolverInput = (
      * the exact signed incidence angle.
      */
     apertureAxisDirection,
-    // A part on the lid or the floor can be placed at any rotation, and its
-    // opening has to turn with it. This is the rotation the model is actually
-    // rendered at, so an opening stays aligned with the body it serves. Side
-    // faces use `apertureAxisDirection` instead; their rotation is an approach
-    // angle in board XY, not a roll within the wall.
-    rotation: cadComponent?.rotation?.z ?? pcbComponent.rotation ?? undefined,
+    // A lid/floor aperture is authored in the footprint frame, so its in-plane
+    // roll follows the PCB component -- the same transform as pads and
+    // silkscreen. Never use `cadComponent.rotation.z` here: it also contains the
+    // model asset's `pcbRotationOffset`, and on the bottom layer its Z scalar is
+    // negated as one part of a full 3D Y-flip. Applying that scalar alone to a
+    // 2D aperture made a 45-degree floor slot rotate to -45 degrees. CAD
+    // rotation remains correct for `componentBody`, whose bounds are model-local.
+    // Side faces use `apertureAxisDirection` instead; there the board-Z rotation
+    // is an approach angle rather than roll within the wall.
+    rotation: pcbComponent.rotation ?? undefined,
     depth: aperture.depth,
     componentBody,
     // Left undefined when unauthored: `create-fdm-enclosure` owns where an
