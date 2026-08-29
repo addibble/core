@@ -1,6 +1,9 @@
 import type {
+  AssemblyBoltPropsInput,
+  AssemblyCablePropsInput,
   AssemblyDevicePropsInput,
   AssemblyScreenPropsInput,
+  AssemblyScrewPropsInput,
   AssemblySubassemblyPropsInput,
 } from "@tscircuit/props"
 import type { ReactNode } from "react"
@@ -10,7 +13,10 @@ export interface AssemblyDeviceJsxProps extends AssemblyDevicePropsInput {
   children?: ReactNode
 }
 
-export interface AssemblyScreenJsxProps extends AssemblyScreenPropsInput {}
+/** A screen is a device, so it nests like one. */
+export interface AssemblyScreenJsxProps extends AssemblyScreenPropsInput {
+  children?: ReactNode
+}
 
 export interface AssemblySubassemblyJsxProps
   extends AssemblySubassemblyPropsInput {}
@@ -23,6 +29,9 @@ export const assembly = {
   cadassembly: createNamespacedElement<AssemblySubassemblyJsxProps>(
     "assembly.cadassembly",
   ),
+  bolt: createNamespacedElement<AssemblyBoltPropsInput>("assembly.bolt"),
+  cable: createNamespacedElement<AssemblyCablePropsInput>("assembly.cable"),
   device: createNamespacedElement<AssemblyDeviceJsxProps>("assembly.device"),
   screen: createNamespacedElement<AssemblyScreenJsxProps>("assembly.screen"),
+  screw: createNamespacedElement<AssemblyScrewPropsInput>("assembly.screw"),
 } as const

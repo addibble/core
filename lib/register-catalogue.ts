@@ -8,13 +8,17 @@ extendCatalogue(Components)
 
 // Aliases (only when class name is different than the name of the component)
 extendCatalogue({
+  "assembly.bolt": Components.AssemblyBolt,
+  "assembly.cable": Components.AssemblyCable,
   "assembly.device": Components.AssemblyDevice,
   "assembly.screen": Components.AssemblyScreen,
   "assembly.subassembly": Components.AssemblySubassembly,
   "assembly.cadassembly": Components.AssemblySubassembly,
+  "assembly.screw": Components.AssemblyScrew,
   Bug: Components.Chip,
   "enclosure.cutoutaperture": Components.EnclosureCutoutAperture,
   "enclosure.fdm.box": Components.EnclosureFdmBox,
+  "enclosure.fdm.heatsetinsert": Components.EnclosureFdmHeatsetInsert,
   Fanout: Components.Breakout,
   FanoutPoint: Components.BreakoutPoint,
 })

@@ -2,9 +2,11 @@ import {
   type CreateFdmEnclosureInput,
   CreateFdmEnclosureSolver,
 } from "@tscircuit/create-fdm-enclosure"
+import { getEnclosureBoardComponents } from "./get-enclosure-board-components"
 import type { PcbComponent } from "circuit-json"
 import { EnclosureCutoutAperture } from "./EnclosureCutoutAperture"
 import type { EnclosureFdmBox } from "./EnclosureFdmBox"
+import { getEnclosureMountInputs } from "./get-enclosure-mount-inputs"
 import { getReferencedEnclosureBoard } from "./get-referenced-enclosure-board"
 
 /**
@@ -45,6 +47,10 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
       height: pcbBoard.height,
       thickness: boardThickness,
     },
+    // Checked against, never resolved from: the enclosure is sized by the board
+    // and its own rules, and the parts on it only decide whether what came out
+    // is buildable.
+    components: getEnclosureBoardComponents({ board, pcbBoard }),
     width: props.width,
     height: props.height,
     depth: props.depth,
@@ -66,6 +72,14 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
           .map((aperture) =>
             aperture.getFdmEnclosureSolverInput({ board, pcbBoard }),
           ),
+    // A mount is joined per hole from the hardware that refers to it, since
+    // the fastening story is split across the hole, the insert and the bolt.
+    mounts: getEnclosureMountInputs({
+      enclosureName: component.name,
+      pcbBoard,
+      board,
+      root: component.root!.firstChild ?? component,
+    }),
   }
 
   const solver = new CreateFdmEnclosureSolver(inputProblem)
