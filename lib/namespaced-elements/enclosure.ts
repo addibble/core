@@ -1,6 +1,7 @@
 import type {
   EnclosureCutoutApertureProps,
   EnclosureFdmBoxProps,
+  EnclosureFdmHeatsetInsertPropsInput,
 } from "@tscircuit/props"
 import { createNamespacedElement } from "./create-namespaced-element"
 
@@ -14,5 +15,8 @@ export const enclosure = {
   fdm: {
     box: EnclosureFdmBoxElement,
     Box: EnclosureFdmBoxElement,
+    heatsetinsert: createNamespacedElement<EnclosureFdmHeatsetInsertPropsInput>(
+      "enclosure.fdm.heatsetinsert",
+    ),
   },
 } as const

@@ -118,11 +118,13 @@
   },
   "dependencies": {
     "@flatten-js/core": "^1.6.2",
+    "@jscad/modeling": "^2.13.0",
     "@lume/kiwi": "^0.4.3",
     "calculate-cell-boundaries": "^0.0.19",
     "calculate-packing": "^0.0.89",
     "css-select": "5.1.0",
     "format-si-unit": "^0.0.12",
+    "jscad-electronics": "^0.0.146",
     "nanoid": "^5.0.7",
     "performance-now": "^2.1.0",
     "react-reconciler": "^0.32.0",
