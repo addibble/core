@@ -35,6 +35,26 @@ const toFastenerThread = (thread: string): EnclosureMountInput["thread"] =>
   thread.toUpperCase() as EnclosureMountInput["thread"]
 
 /**
+ * props and the model strings spell heads unspaced (`socketcap`, `panhead`);
+ * the solver spells them its own way (`socket_cap`, `pan`).
+ *
+ * Written out rather than derived from the string, because the two vocabularies
+ * do not differ by a rule -- `panhead` loses a suffix while `socketcap` gains an
+ * underscore -- and a clever transformation would be a trap the first time a
+ * head is added that fits neither pattern.
+ */
+const toSolverScrewHead = (head: string): EnclosureMountInput["head"] => {
+  const solverHead = {
+    socketcap: "socket_cap",
+    countersunk: "countersunk",
+    panhead: "pan",
+    buttonhead: "button",
+  }[head]
+  if (!solverHead) throw new Error(`unknown screw head "${head}"`)
+  return solverHead as EnclosureMountInput["head"]
+}
+
+/**
  * The drill this screw has to pass through, in millimetres.
  *
  * A non-circular hole is measured across its narrow axis, because that is what
@@ -273,7 +293,13 @@ export const getEnclosureMountInputs = ({
       },
       thread: toFastenerThread(thread),
       fastening: screw ? "self_tapping" : "heat_set_insert",
-      head: "socket_cap",
+      // The head belongs to whichever fastener is actually there: a screw drives
+      // into the boss, a bolt into the insert, and only that one has a head
+      // bearing on anything. Defaulted rather than required, so an author who
+      // has not thought about heads still gets a fastener that fits.
+      head: toSolverScrewHead(
+        (screw ?? bolt)?._parsedProps.head ?? "socketcap",
+      ),
       // Omitted unless authored, so create-fdm-enclosure derives it from the
       // clamped stack and rounds up to a stocked size. A screw never authors
       // one; a bolt may, and is then checked against the same bounds.

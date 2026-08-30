@@ -143,3 +143,57 @@ test("an enclosure does not adopt another board's hardware", async () => {
     "screw_m3_l8mm_socketcap",
   ])
 })
+
+/**
+ * Head shape is authored, not assumed.
+ *
+ * It was hardcoded to socket cap, so `<assembly.screw head="panhead" />` was
+ * accepted and silently ignored -- and the RFC needs head shape precisely
+ * because the enclosure has to cut a recess for it, which is the one thing a
+ * wrong head makes wrong.
+ */
+test("the authored head reaches the emitted part", async () => {
+  const headOf = async (
+    head?: "socketcap" | "countersunk" | "panhead" | "buttonhead",
+  ) => {
+    const { circuit } = getTestFixture()
+    circuit.add(
+      (
+        <assembly.device name="DEV1">
+          <board name="B1" width="40mm" height="24mm">
+            <hole name="H1" pcbX={-8} pcbY={0} diameter="3.4mm">
+              <assembly.screw thread="m3" {...(head ? { head } : {})} />
+            </hole>
+          </board>
+          <enclosure.fdm.box name="EN1" boardRef=".B1" standoffHeight={8} />
+        </assembly.device>
+      ) as never,
+    )
+    await circuit.renderUntilSettled()
+    const circuitJson = await circuit.getCircuitJson()
+    return (circuitJson as any[]).find(
+      (e) => e.type === "cad_component" && e.footprinter_string,
+    )?.footprinter_string
+  }
+
+  expect(await headOf("panhead")).toContain("pan")
+  expect(await headOf("buttonhead")).toContain("button")
+  expect(await headOf("socketcap")).toContain("socketcap")
+  // Omitted defaults to socket cap: the commonest fastener in this class, and
+  // the one needing only a plain counterbore.
+  expect(await headOf()).toContain("socketcap")
+})
+
+/**
+ * The solver refuses a countersunk head on a BOARD mount, because the cone
+ * would bear on the PCB -- which the enclosure does not machine -- rather than
+ * on anything it cut. Worth pinning: it is a real mechanical rule, and the kind
+ * that gets "simplified" away by someone who reads it as an arbitrary limit.
+ */
+test("a countersunk head on a board mount is refused, and says why", async () => {
+  const message = await renderFailure(
+    mount(<assembly.screw thread="m3" head="countersunk" />),
+  )
+  expect(message).toContain("countersunk")
+  expect(message).toContain("bears on the PCB")
+})
