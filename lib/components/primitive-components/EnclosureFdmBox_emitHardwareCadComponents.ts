@@ -139,7 +139,14 @@ export const emitEnclosureHardwareCadComponents = ({
       // builds it. jscad-assembly-hardware builds every model in the same
       // frame the solver placed it in -- +Z along the axis, origin at the
       // seating face -- so the position above is all the placement it needs.
-      modelprinter_string: modelprinterString,
+      //
+      // Carried in `footprinter_string`, which is the one field Circuit JSON
+      // has for "a model named by a string". The name is historical: the
+      // renderers' shared entry point (`getJscadModelForFootprint`) tries the
+      // modelprinter vocabulary first and falls through to footprinter, which
+      // is how `flexscreen` already travels. A second field would have split
+      // one concept across two.
+      footprinter_string: modelprinterString,
     } as never)
   }
 }

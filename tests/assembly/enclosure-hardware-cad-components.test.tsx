@@ -33,7 +33,7 @@ test("an enclosure emits a cad_component per piece of mounting hardware", async 
 
   const circuitJson = await circuit.getCircuitJson()
   type HardwarePiece = {
-    modelprinter_string: string
+    footprinter_string: string
     position: { x: number; y: number; z: number }
     pcb_component_id: string
     source_component_id: string
@@ -41,13 +41,11 @@ test("an enclosure emits a cad_component per piece of mounting hardware", async 
   const hardware = circuitJson.filter(
     (element) =>
       element.type === "cad_component" &&
-      Boolean(
-        (element as { modelprinter_string?: string }).modelprinter_string,
-      ),
+      Boolean((element as { footprinter_string?: string }).footprinter_string),
   ) as unknown as HardwarePiece[]
 
   // The screw's mount produces one piece; the bolt's mount produces two.
-  expect(hardware.map((piece) => piece.modelprinter_string).sort()).toEqual([
+  expect(hardware.map((piece) => piece.footprinter_string).sort()).toEqual([
     "bolt_m3_l8mm_socketcap",
     "heatsetinsert_m3_l5.7mm",
     "screw_m3_l8mm_socketcap",
@@ -56,9 +54,9 @@ test("an enclosure emits a cad_component per piece of mounting hardware", async 
   // The family follows the MOUNT, not the piece: the solver calls both a
   // "screw" because they are the same solid, but what they thread into is what
   // decides the bore, so only the one without an insert stays a screw.
-  const bolt = hardware.find((p) => p.modelprinter_string.startsWith("bolt_"))!
+  const bolt = hardware.find((p) => p.footprinter_string.startsWith("bolt_"))!
   const insert = hardware.find((p) =>
-    p.modelprinter_string.startsWith("heatsetinsert_"),
+    p.footprinter_string.startsWith("heatsetinsert_"),
   )!
   expect(bolt.position.x).toBeCloseTo(-16, 6)
   expect(insert.position.x).toBeCloseTo(-16, 6)
