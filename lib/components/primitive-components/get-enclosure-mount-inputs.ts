@@ -135,18 +135,55 @@ export const getEnclosureMountInputs = ({
     return entry
   }
 
-  for (const insert of inserts) {
-    const hole = resolveHole(insert, root)
-    if (hole) entryFor(hole).insert = insert
+  /**
+   * A mount belongs to the board this enclosure was pointed at.
+   *
+   * Hardware is looked up from the whole tree, because a selector may reach it
+   * from anywhere -- but a second board's holes are not this enclosure's
+   * mounts. Without this, an enclosure for B1 grows bosses for B2's hardware,
+   * placed at coordinates measured from B1's centre: hardware that is silently
+   * in the wrong place rather than absent.
+   */
+  const belongsToThisBoard = (hole: MountOwner): boolean => {
+    let ancestor: PrimitiveComponent | null = hole as PrimitiveComponent
+    while (ancestor) {
+      if (ancestor === board) return true
+      ancestor = ancestor.parent ?? null
+    }
+    return false
   }
-  for (const bolt of bolts) {
-    const hole = resolveHole(bolt, root)
-    if (hole) entryFor(hole).bolt = bolt
+
+  /**
+   * Attach one piece of hardware to its hole, refusing what cannot be built.
+   *
+   * Both failures here were silent before: an unresolved `holeRef` dropped the
+   * hardware, and a second piece of the same kind overwrote the first. Either
+   * way the part vanished from the enclosure and from the BOM, and the only
+   * symptom was a mount that did not appear.
+   */
+  const attach = (
+    piece: EnclosureFdmHeatsetInsert | AssemblyBolt | AssemblyScrew,
+    kind: "insert" | "bolt" | "screw",
+  ) => {
+    const hole = resolveHole(piece, root)
+    if (!hole) {
+      throw new Error(
+        `${enclosureName}: an <assembly.${kind === "insert" ? "…heatsetinsert" : kind} /> does not resolve to a hole; give it a holeRef, or nest it inside a <hole />`,
+      )
+    }
+    if (!belongsToThisBoard(hole)) return
+    const entry = entryFor(hole)
+    if (entry[kind]) {
+      throw new Error(
+        `${enclosureName}: hole "${hole.name}" has more than one ${kind}; one hole takes one of each`,
+      )
+    }
+    entry[kind] = piece as never
   }
-  for (const screw of screws) {
-    const hole = resolveHole(screw, root)
-    if (hole) entryFor(hole).screw = screw
-  }
+
+  for (const insert of inserts) attach(insert, "insert")
+  for (const bolt of bolts) attach(bolt, "bolt")
+  for (const screw of screws) attach(screw, "screw")
 
   const db = root.root!.db
   const mounts: EnclosureMountInput[] = []
@@ -171,6 +208,36 @@ export const getEnclosureMountInputs = ({
       throw new Error(
         `${enclosureName}: hole "${hole.name}" has both an <assembly.screw /> and an <enclosure.fdm.heatsetinsert />; a screw threads into the boss itself, so pick one`,
       )
+    }
+
+    // A mount is one of exactly two shapes: a screw threading straight into the
+    // boss, or a bolt into an insert set in it. Everything else was accepted
+    // before and quietly completed -- a lone insert or a lone bolt both came out
+    // as `heat_set_insert`, so the solver went and fitted the missing half
+    // itself, and the enclosure was built for hardware nobody had asked for.
+    if (screw && bolt) {
+      throw new Error(
+        `${enclosureName}: hole "${hole.name}" has both an <assembly.screw /> and an <assembly.bolt />; a screw forms its own thread and a bolt needs one cut for it, so pick one`,
+      )
+    }
+    if (bolt && !insert) {
+      throw new Error(
+        `${enclosureName}: hole "${hole.name}" has an <assembly.bolt /> but nothing for it to thread into; add an <enclosure.fdm.heatsetinsert />, or use an <assembly.screw /> to thread straight into the boss`,
+      )
+    }
+    if (insert && !bolt) {
+      throw new Error(
+        `${enclosureName}: hole "${hole.name}" has an <enclosure.fdm.heatsetinsert /> but no <assembly.bolt /> going into it`,
+      )
+    }
+    if (insert && bolt) {
+      const insertThread = insert._parsedProps.thread
+      const boltThread = bolt._parsedProps.thread
+      if (insertThread && boltThread && insertThread !== boltThread) {
+        throw new Error(
+          `${enclosureName}: hole "${hole.name}" pairs an ${boltThread} bolt with an ${insertThread} insert; they have to be the same thread`,
+        )
+      }
     }
 
     const thread =
