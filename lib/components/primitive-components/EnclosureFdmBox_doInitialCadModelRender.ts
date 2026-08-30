@@ -3,6 +3,7 @@ import {
   CreateFdmEnclosureSolver,
 } from "@tscircuit/create-fdm-enclosure"
 import { getEnclosureBoardComponents } from "./get-enclosure-board-components"
+import { emitEnclosureHardwareCadComponents } from "./EnclosureFdmBox_emitHardwareCadComponents"
 import type { PcbComponent } from "circuit-json"
 import { EnclosureCutoutAperture } from "./EnclosureCutoutAperture"
 import type { EnclosureFdmBox } from "./EnclosureFdmBox"
@@ -136,4 +137,14 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
   // PrimitiveComponent exposes one compatibility id; keep the first generated
   // part there while the database remains the source of truth for both records.
   component.cad_component_id = cadComponents[0]?.cad_component_id ?? null
+
+  // Each piece of hardware the solve consumed becomes its own part. Emitted
+  // after the shell so the enclosure keeps the first cad_component_id, which
+  // callers still read as "the enclosure".
+  emitEnclosureHardwareCadComponents({
+    component,
+    hardware: output.hardware ?? [],
+    mounts: inputProblem.mounts,
+    enclosureOrigin: position,
+  })
 }

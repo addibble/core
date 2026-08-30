@@ -19,9 +19,15 @@ export class AssemblyBolt extends AssemblyLevelPrimitive<
     }
   }
 
-  /** The hole this bolt passes through, as a selector. Always present. */
-  getHoleSelector(): string {
-    return this._parsedProps.holeRef
+  /**
+   * The hole this bolt passes through, as a selector.
+   *
+   * Null when the bolt is declared as a child of that hole, which is the RFC's
+   * primary syntax -- the parent is the answer and no selector is needed. Same
+   * contract as `<assembly.screw />` and `<enclosure.fdm.heatsetinsert />`.
+   */
+  getHoleSelector(): string | null {
+    return this._parsedProps.holeRef ?? null
   }
 
   /** True when the bolt reaches through the lid rather than stopping at the board. */
