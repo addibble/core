@@ -38,6 +38,8 @@ test("assembly extensions render in both accepted spellings", async () => {
 
       <enclosure.fdm.heatsetinsert thread="m3" holeRef=".B1 .H2" />
       <assembly.bolt thread="m3" length="14mm" holeRef=".B1 .H1" fastensLid />
+      {/* every insert needs the bolt that goes into it, so H2 gets one too */}
+      <assembly.bolt thread="m3" length="14mm" holeRef=".B1 .H2" fastensLid />
       <enclosure.fdm.box name="EN1" boardRef=".B1" />
     </assembly.device>,
   )
@@ -55,10 +57,13 @@ test("assembly extensions render in both accepted spellings", async () => {
   ])
 
   const bolts = descendantsOfType(circuit, AssemblyBolt)
-  expect(bolts).toHaveLength(1)
-  expect(bolts[0]!.getHoleSelector()).toBe(".B1 .H1")
-  expect(bolts[0]!.getFastensLid()).toBe(true)
-  expect(bolts[0]!._parsedProps.length).toBe(14)
+  expect(bolts).toHaveLength(2)
+  expect(bolts.map((b) => b.getHoleSelector()).sort()).toEqual([
+    ".B1 .H1",
+    ".B1 .H2",
+  ])
+  expect(bolts.every((b) => b.getFastensLid())).toBe(true)
+  expect(bolts.every((b) => b._parsedProps.length === 14)).toBe(true)
 })
 
 test("a screw carries the thread and a procurement designation", async () => {
