@@ -58,6 +58,14 @@ export const toModelprinterString = (
 
   if (family === "screw") {
     // A bolt threads into an insert; a screw forms its own thread in plastic.
+    // Which one this is comes from the mount, so a missing fastening cannot be
+    // defaulted -- guessing "screw" draws a thread-forming screw threading into
+    // brass, and nothing downstream can tell that apart from an authored screw.
+    if (fastening !== "heat_set_insert" && fastening !== "self_tapping") {
+      throw new Error(
+        `cannot draw "${hardwareString}": its mount has no fastening method, so there is no way to tell a screw from a bolt`,
+      )
+    }
     const isBolt = fastening === "heat_set_insert"
     return `${isBolt ? "bolt" : "screw"}_${rest.join("_")}`
   }

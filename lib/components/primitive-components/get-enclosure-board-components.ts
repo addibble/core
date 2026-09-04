@@ -82,7 +82,16 @@ export const getEnclosureBoardComponents = ({
 
     components.push({
       id: descendant.getString(),
-      center: { x: pcbComponent.center.x, y: pcbComponent.center.y },
+      // Board-relative, the frame `mounts` and apertures both state: the solver
+      // differences a mount's anchor against these directly
+      // (`checkComponentClearance`), so an absolute centre here offsets every
+      // part from every boss by the board's own placement. Same expression as
+      // the mount path in `get-enclosure-mount-inputs.ts` and the aperture path
+      // in `EnclosureCutoutAperture/get-fdm-enclosure-solver-input.ts`.
+      center: {
+        x: pcbComponent.center.x - pcbBoard.center.x,
+        y: pcbComponent.center.y - pcbBoard.center.y,
+      },
       boardSide,
       body,
     })
