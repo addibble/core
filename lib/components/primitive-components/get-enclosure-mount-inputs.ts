@@ -225,6 +225,19 @@ export const getEnclosureMountInputs = ({
   const db = root.root!.db
   const mounts: EnclosureMountInput[] = []
   let index = 0
+  /**
+   * Mount ids already issued, so a duplicate can be qualified.
+   *
+   * A hole's `name` is scoped to the group holding it, so one board can carry
+   * two holes both called "H1". The mount id is not decorative: it keys the
+   * fastening lookup that decides whether a piece is drawn as a screw or a
+   * bolt, and the solver's own occurrence ids. Two mounts sharing one id emit
+   * one mount's hardware under the other's fastening method -- a thread-forming
+   * screw shown threading into a brass insert, which is exactly the
+   * contradiction "a mount is joined, not read off one element" exists to make
+   * unspellable.
+   */
+  const issuedMountIds = new Set<string>()
 
   for (const [hole, { insert, bolt, screw }] of byHole) {
     index++
@@ -287,8 +300,14 @@ export const getEnclosureMountInputs = ({
       )
     }
 
+    // Qualified only when the bare name is already taken, so the common case
+    // keeps the id an author would recognise from their own `holeRef`.
+    let mountId = `${enclosureName}.${hole.name ?? `mount${index}`}`
+    if (issuedMountIds.has(mountId)) mountId = `${mountId}#${index}`
+    issuedMountIds.add(mountId)
+
     mounts.push({
-      id: `${enclosureName}.${hole.name ?? `mount${index}`}`,
+      id: mountId,
       fastens: bolt?.getFastensLid() ? "lid" : "board",
       // Board-relative, as apertures are: the enclosure is centred on the
       // board, and stating the frame here keeps that assumption in one place.
