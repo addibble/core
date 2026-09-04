@@ -14,7 +14,7 @@ import { AssemblyDevice } from "./AssemblyDevice"
  * It adds only what a generic device cannot express: which connector it plugs
  * into, and its active area.
  */
-export class AssemblyScreen extends AssemblyDevice {
+export class AssemblyScreen extends AssemblyDevice<typeof assemblyScreenProps> {
   get config() {
     return {
       componentName: "AssemblyScreen",

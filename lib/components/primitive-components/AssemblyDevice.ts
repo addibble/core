@@ -1,10 +1,18 @@
 import { assemblyDeviceProps } from "@tscircuit/props"
 import { type Matrix, identity } from "transformation-matrix"
+import type { z } from "zod"
 import type { AssemblyDeviceContainer } from "../base-components/is-assembly-device-container"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
 
-export class AssemblyDevice
-  extends PrimitiveComponent<typeof assemblyDeviceProps>
+/**
+ * Generic over its props schema for the same reason `Group` is: a subclass such
+ * as `AssemblyScreen` is still a device, but parses a narrower schema, and an
+ * override cannot widen `config.zodProps`.
+ */
+export class AssemblyDevice<
+    Props extends z.ZodType<any, any, any> = typeof assemblyDeviceProps,
+  >
+  extends PrimitiveComponent<Props>
   implements AssemblyDeviceContainer
 {
   isAssemblyDeviceContainer = true as const
@@ -12,7 +20,7 @@ export class AssemblyDevice
   get config() {
     return {
       componentName: "AssemblyDevice",
-      zodProps: assemblyDeviceProps,
+      zodProps: assemblyDeviceProps as unknown as Props,
     }
   }
 
