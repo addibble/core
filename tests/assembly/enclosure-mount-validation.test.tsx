@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { screwHeads } from "@tscircuit/props"
 import { assembly, enclosure } from "lib"
 import { getTestFixture } from "tests/fixtures/get-test-fixture"
 
@@ -196,4 +197,12 @@ test("a countersunk head on a board mount is refused, and says why", async () =>
   )
   expect(message).toContain("countersunk")
   expect(message).toContain("bears on the PCB")
+  // Every head the message tells the author to use must be one props accepts.
+  // It used to suggest `head="socket_cap", "pan" or "button"` -- the solver's
+  // own spelling, all three of which props rejects -- and this test passed
+  // anyway, because it only looked for the word "countersunk".
+  for (const suggested of message.match(/head="([a-z_]+)"/g) ?? []) {
+    const head = suggested.slice('head="'.length, -1)
+    expect(screwHeads).toContain(head as (typeof screwHeads)[number])
+  }
 })
