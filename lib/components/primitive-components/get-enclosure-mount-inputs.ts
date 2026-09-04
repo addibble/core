@@ -30,6 +30,23 @@ import { PlatedHole } from "./PlatedHole"
 
 type MountOwner = Hole | PlatedHole
 
+/**
+ * The recess a head needs, when one is asked for.
+ *
+ * The kind follows from the head rather than being chosen alongside it: a
+ * countersunk head seats in a cone, and every flat-undersided head seats in a
+ * flat-bottomed bore. Deriving it here means the crossed combinations cannot be
+ * expressed at all -- previously `socketcap` with a countersink was accepted,
+ * and a flat head bearing on a cone touches only at its rim.
+ */
+const toSolverHeadRecess = (
+  head: string,
+  recessed: boolean,
+): EnclosureMountInput["headRecess"] => {
+  if (!recessed) return "none"
+  return head === "countersunk" ? "countersink" : "counterbore"
+}
+
 /** props/RFC spell threads lowercase (`m3`); the solver spells them `M3`. */
 const toFastenerThread = (thread: string): EnclosureMountInput["thread"] =>
   thread.toUpperCase() as EnclosureMountInput["thread"]
@@ -300,6 +317,29 @@ export const getEnclosureMountInputs = ({
       head: toSolverScrewHead(
         (screw ?? bolt)?._parsedProps.head ?? "socketcap",
       ),
+      // Passed through only when authored. Whether the head is sunk is a
+      // separate decision from which head it is -- a cap head sitting proud is
+      // perfectly normal -- but the KIND of recess is not: it follows from the
+      // head, and is derived rather than chosen so the crossed combinations
+      // cannot be spelled.
+      ...((screw ?? bolt)?._parsedProps.headRecess !== undefined
+        ? {
+            headRecess: toSolverHeadRecess(
+              (screw ?? bolt)?._parsedProps.head ?? "socketcap",
+              Boolean((screw ?? bolt)!._parsedProps.headRecess),
+            ),
+          }
+        : {}),
+      // Only a lid bolt can carry a column, and the solver refuses one on a
+      // board mount rather than silently ignoring it -- so this is sent only
+      // when the bolt actually fastens the lid.
+      //
+      // Stated explicitly in both directions: the solver's own default is
+      // "printed", and leaving it unsent would grow a column nobody asked for.
+      // Retention is a thing you request, so absence means "none".
+      ...(bolt?.getFastensLid()
+        ? { lidColumn: bolt._parsedProps.lidColumn ? "printed" : "none" }
+        : {}),
       // Omitted unless authored, so create-fdm-enclosure derives it from the
       // clamped stack and rounds up to a stocked size. A screw never authors
       // one; a bolt may, and is then checked against the same bounds.
