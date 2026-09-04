@@ -27,58 +27,16 @@ type HardwareOccurrence = {
   role: string
   mountId: string
   designation: string
-  hardwareString: string
+  /**
+   * A modelprinter model string, or null for a piece with no modelprinter
+   * family -- a press-fit insert today. Null is a BOM line that is not drawn,
+   * which is better than one drawn as something else.
+   */
+  hardwareString: string | null
   displayValue: string
   manufacturerPartNumber?: string
   supplierPartNumbers?: Record<string, string[]>
   position: { x: number; y: number; z: number }
-}
-
-/**
- * Translate the solver's hardware string into a modelprinter one.
- *
- * The two vocabularies differ in exactly two places, and both differences are
- * real rather than cosmetic:
- *
- * - The solver's `role` is `screw` for anything with a head and a thread,
- *   because a screw and a bolt are the same solid. modelprinter keeps them
- *   apart, because what they thread into decides the bore the enclosure cuts --
- *   so the family is chosen from the MOUNT's fastening method, not the piece.
- * - `insert_m3_l5.7_heatset` names the method last; `heatsetinsert_m3_l5.7`
- *   names it first, because in modelprinter the family IS the method.
- *
- * Returns null for anything the vocabulary does not cover -- a press-fit insert
- * today -- so an unmodelled piece is simply not drawn rather than drawn wrong.
- */
-export const toModelprinterString = (
-  hardwareString: string,
-  fastening: string | undefined,
-): string | null => {
-  const [family, ...rest] = hardwareString.split("_")
-
-  if (family === "screw") {
-    // A bolt threads into an insert; a screw forms its own thread in plastic.
-    // Which one this is comes from the mount, so a missing fastening cannot be
-    // defaulted -- guessing "screw" draws a thread-forming screw threading into
-    // brass, and nothing downstream can tell that apart from an authored screw.
-    if (fastening !== "heat_set_insert" && fastening !== "self_tapping") {
-      throw new Error(
-        `cannot draw "${hardwareString}": its mount has no fastening method, so there is no way to tell a screw from a bolt`,
-      )
-    }
-    const isBolt = fastening === "heat_set_insert"
-    return `${isBolt ? "bolt" : "screw"}_${rest.join("_")}`
-  }
-
-  if (family === "insert") {
-    const method = rest[rest.length - 1]
-    if (method !== "heatset") return null
-    return `heatsetinsert_${rest.slice(0, -1).join("_")}`
-  }
-
-  if (family === "spacer") return hardwareString
-
-  return null
 }
 
 export const emitEnclosureHardwareCadComponents = ({
@@ -97,15 +55,14 @@ export const emitEnclosureHardwareCadComponents = ({
   if (!root || root.pcbDisabled) return
   const { db } = root
 
-  const fasteningByMountId = new Map(
-    (mounts ?? []).map((mount) => [mount.id, mount.fastening as string]),
-  )
-
+  // The solver emits modelprinter's own vocabulary, so there is nothing to
+  // translate. There used to be: it spelled a bolt `screw_` and an insert
+  // `insert_..._heatset`, and this file rebuilt the family from the mount's
+  // fastening method, looked up by mount id. That lookup is what made a
+  // duplicate mount id draw a bolt as a thread-forming screw, and the
+  // `insert_` spelling matched no modelprinter family at all.
   for (const piece of hardware) {
-    const modelprinterString = toModelprinterString(
-      piece.hardwareString,
-      fasteningByMountId.get(piece.mountId),
-    )
+    const modelprinterString = piece.hardwareString
     if (!modelprinterString) continue
 
     const sourceComponent = db.source_component.insert({

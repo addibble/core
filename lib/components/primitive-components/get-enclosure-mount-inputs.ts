@@ -47,29 +47,14 @@ const toSolverHeadRecess = (
   return head === "countersunk" ? "countersink" : "counterbore"
 }
 
-/** props/RFC spell threads lowercase (`m3`); the solver spells them `M3`. */
-const toFastenerThread = (thread: string): EnclosureMountInput["thread"] =>
-  thread.toUpperCase() as EnclosureMountInput["thread"]
-
-/**
- * props and the model strings spell heads unspaced (`socketcap`, `panhead`);
- * the solver spells them its own way (`socket_cap`, `pan`).
+/*
+ * There is no thread or head translation here any more, and that is the point.
  *
- * Written out rather than derived from the string, because the two vocabularies
- * do not differ by a rule -- `panhead` loses a suffix while `socketcap` gains an
- * underscore -- and a clever transformation would be a trap the first time a
- * head is added that fits neither pattern.
+ * props, `@tscircuit/modelprinter` and `@tscircuit/create-fdm-enclosure` now
+ * share one spelling (`m3`, `socketcap`, `panhead`, `buttonhead`). There used
+ * to be two, converted in this direction only -- so every message the solver
+ * raised told an author to write `head="socket_cap"`, which props rejects.
  */
-const toSolverScrewHead = (head: string): EnclosureMountInput["head"] => {
-  const solverHead = {
-    socketcap: "socket_cap",
-    countersunk: "countersunk",
-    panhead: "pan",
-    buttonhead: "button",
-  }[head]
-  if (!solverHead) throw new Error(`unknown screw head "${head}"`)
-  return solverHead as EnclosureMountInput["head"]
-}
 
 /**
  * The drill this screw has to pass through, in millimetres.
@@ -327,15 +312,13 @@ export const getEnclosureMountInputs = ({
         elementId:
           hole instanceof Hole ? hole.pcb_hole_id! : hole.pcb_plated_hole_id!,
       },
-      thread: toFastenerThread(thread),
+      thread,
       fastening: screw ? "self_tapping" : "heat_set_insert",
       // The head belongs to whichever fastener is actually there: a screw drives
       // into the boss, a bolt into the insert, and only that one has a head
       // bearing on anything. Defaulted rather than required, so an author who
       // has not thought about heads still gets a fastener that fits.
-      head: toSolverScrewHead(
-        (screw ?? bolt)?._parsedProps.head ?? "socketcap",
-      ),
+      head: (screw ?? bolt)?._parsedProps.head ?? "socketcap",
       // Passed through only when authored. Whether the head is sunk is a
       // separate decision from which head it is -- a cap head sitting proud is
       // perfectly normal -- but the KIND of recess is not: it follows from the
