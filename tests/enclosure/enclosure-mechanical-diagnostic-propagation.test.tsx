@@ -36,5 +36,5 @@ test("a solver error that prevents board seating reaches Circuit JSON diagnostic
       element.message.includes("U1") &&
       element.message.includes("cannot seat"),
   )
-  expect(mechanicalErrors).not.toHaveLength(0)
+  expect(mechanicalErrors).toHaveLength(1)
 }, 30_000)

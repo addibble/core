@@ -1,125 +1,228 @@
-import type { EnclosureComponentBody } from "@tscircuit/create-fdm-enclosure"
+import * as jscad from "@jscad/modeling"
+import {
+  getCadModelPlacement,
+  mat4,
+  type CadModelBounds,
+} from "@tscircuit/circuit-json-util"
+import type {
+  EnclosureComponentBody,
+  FdmComponentSolid,
+} from "@tscircuit/create-fdm-enclosure"
+import type { cadModelBase } from "@tscircuit/props"
 import type { CadComponent, PcbComponent } from "circuit-json"
+import { assertTransformMatrix, type JscadOperation } from "jscad-planner"
+import { Box3, Matrix4, Vector3 } from "three"
+import type { z } from "zod"
 import type { PrimitiveComponent } from "../../base-components/PrimitiveComponent"
+import {
+  getCachedEnclosureCadModelBounds,
+  getEnclosureCadModelBody,
+} from "../get-enclosure-cad-model-body"
 
-type Point3Like = { x?: number; y?: number; z?: number }
-
-/**
- * How far the model reaches beyond the point that sits on the board surface.
- *
- * `model_origin_position` is that point, and `model_bounds` is the model's
- * extent in the same frame, so the difference along the board normal is the
- * reach. `size` cannot answer this: it carries the extent but not where the box
- * sits relative to the origin, and the box is generally not centered on it.
- *
- * Everything that merely *translates* the model -- `zOffsetFromSurface`,
- * `positionOffset.z`, the mounting layer -- is already composed into
- * `cad_component.position.z`, so the caller adds that rather than re-deriving
- * it here.
- */
-const getModelReachAboveOrigin = ({
-  cad,
-  authoredModel,
-}: {
-  cad: CadComponent
-  authoredModel?: Record<string, any>
-}): number | undefined => {
-  // `modelBounds` is staged in Props before it becomes durable Circuit JSON.
-  // Prefer the eventual record field when present, but read the parsed prop in
-  // this migration PR so Core can consume it without a schema fork.
-  const bounds =
-    ((cad as CadComponent & { model_bounds?: unknown }).model_bounds as
-      | { min?: Point3Like; max?: Point3Like }
-      | undefined) ?? authoredModel?.modelBounds
-  const origin =
-    (cad.model_origin_position as Point3Like | undefined) ??
-    authoredModel?.modelOriginPosition
-  if (!bounds?.min || !bounds?.max || !origin) return undefined
-
-  // The model axis that leaves the board. Defaults to z+, matching the
-  // renderer's own default in `getOrientationRotationForBoardNormal`.
-  const normal =
-    cad.model_board_normal_direction ??
-    authoredModel?.modelBoardNormalDirection ??
-    "z+"
-  const axis = normal[0] as "x" | "y" | "z"
-  if (axis !== "x" && axis !== "y" && axis !== "z") return undefined
-
-  const min = bounds.min[axis]
-  const max = bounds.max[axis]
-  const at = origin[axis]
-  if (min === undefined || max === undefined || at === undefined)
-    return undefined
-
-  // For a negative normal the model points the other way, so the reach runs
-  // from the origin down to the minimum instead of up to the maximum.
-  const reach = normal.endsWith("-") ? at - min : max - at
-  return Number.isFinite(reach) && reach >= 0 ? reach : undefined
+export interface ResolvedEnclosureComponentBody extends EnclosureComponentBody {
+  /** Board-relative XYZ mm, Z=0 at the PCB midplane. */
+  bounds?: CadModelBounds
+  /** Same native->board placement as bounds; no enclosure transform yet. */
+  solid?: FdmComponentSolid
 }
 
 /**
- * Project the part's physical facts into the enclosure package's normalized
- * body envelope.
- *
- * Size, placement and rotation come from the emitted `cad_component`, the
- * normalized form every authoring path converges on. During this staged
- * migration only, measured `modelBounds` may still live solely in the parsed
- * object prop because Circuit JSON has not gained the durable field yet; that
- * one fact falls back to the owner prop and moves to the record in the later
- * schema PR.
- *
- * It also means the rotation and the Z datum are the ones the model is actually
- * rendered at: `rotation.z` already composes the footprint rotation with the
- * model's own `pcbRotationOffset`, and `position.z` already composes
- * `zOffsetFromSurface`, `positionOffset.z` and the mounting layer. Re-deriving
- * either here is how the two drift apart.
- *
- * Core reports what it canonically knows and does not decide what any of it
- * means for a cut: face selection and depth projection are enclosure policy,
- * which is why no face is taken here.
+ * Right-handed board-relative XYZ, Z-up mm, with Z=0 at the PCB midplane.
+ * One native->board matrix places both actual solids and their envelope.
+ * Enclosure placement and collision policy belong to create-fdm-enclosure.
  */
 export const getComponentBody = ({
   owner,
   pcbComponent,
   cadComponent,
   boardSurfaceZ,
+  boardCenter = { x: 0, y: 0 },
 }: {
   owner?: PrimitiveComponent | null
   pcbComponent: PcbComponent
   cadComponent: CadComponent | null | undefined
-  /**
-   * World Z of the surface the part is mounted on, so the model's reach is
-   * measured from the board rather than from wherever its origin landed.
-   */
+  /** Board-surface POINT in Circuit JSON world Z, not an outward distance. */
   boardSurfaceZ: number
-}): EnclosureComponentBody => {
-  const cadModelProp = owner?._parsedProps?.cadModel
-  const authoredModel =
-    cadModelProp && typeof cadModelProp === "object"
-      ? (cadModelProp as Record<string, any>)
-      : undefined
-  const size = (cadComponent?.size ?? authoredModel?.size) as
-    | Point3Like
-    | undefined
-  const x = size?.x
-  const y = size?.y
-  const z = size?.z
-  const reach = cadComponent
-    ? getModelReachAboveOrigin({ cad: cadComponent, authoredModel })
-    : undefined
-  const originZ = cadComponent?.position?.z
-  const aboveBoardHeight =
-    reach !== undefined && originZ !== undefined
-      ? reach + Math.abs(originZ - boardSurfaceZ)
-      : undefined
+  /** Board-center POINT in Circuit JSON world XY, in mm. */
+  boardCenter?: { x: number; y: number }
+}): ResolvedEnclosureComponentBody => {
+  const footprint = { width: pcbComponent.width, height: pcbComponent.height }
+  if (!cadComponent) return { footprint }
 
-  return {
-    size: x !== undefined && y !== undefined ? { x, y, z } : undefined,
-    aboveBoardHeight,
-    rotation: cadComponent?.rotation?.z ?? pcbComponent.rotation ?? 0,
-    footprint: {
-      width: pcbComponent.width,
-      height: pcbComponent.height,
+  const cadModelProp = owner?._parsedProps?.cadModel
+  const authoredModel: z.output<typeof cadModelBase> | undefined =
+    cadModelProp &&
+    typeof cadModelProp === "object" &&
+    !("type" in cadModelProp)
+      ? cadModelProp
+      : undefined
+  const nativeBody = getEnclosureCadModelBody(owner, cadComponent)
+  const size = cadComponent.size ?? authoredModel?.size
+  const normal = cadComponent.model_board_normal_direction ?? "z+"
+  const normalAxis = normal[0] as "x" | "y" | "z"
+  let nativeBounds: CadModelBounds | undefined =
+    nativeBody?.bounds ??
+    (owner
+      ? getCachedEnclosureCadModelBounds(owner, cadComponent)
+      : undefined) ??
+    authoredModel?.modelBounds
+  if (!nativeBounds && size) {
+    // Size-only assets supply a conservative envelope, never an exact solid.
+    const unitScale = cadComponent.model_unit_to_mm_scale_factor ?? 1
+    const extent = {
+      x: size.x / unitScale,
+      y: size.y / unitScale,
+      z: size.z / unitScale,
+    }
+    nativeBounds = {
+      min: { x: -extent.x / 2, y: -extent.y / 2, z: -extent.z / 2 },
+      max: { x: extent.x / 2, y: extent.y / 2, z: extent.z / 2 },
+    }
+    const origin = cadComponent.model_origin_position?.[normalAxis] ?? 0
+    nativeBounds.min[normalAxis] = normal.endsWith("-")
+      ? origin - extent[normalAxis]
+      : origin
+    nativeBounds.max[normalAxis] = normal.endsWith("-")
+      ? origin
+      : origin + extent[normalAxis]
+  }
+  if (!nativeBounds) return { footprint }
+
+  const contactPoint = nativeBody?.boardContactPoint ?? {
+    x: (nativeBounds.min.x + nativeBounds.max.x) / 2,
+    y: (nativeBounds.min.y + nativeBounds.max.y) / 2,
+    z: (nativeBounds.min.z + nativeBounds.max.z) / 2,
+  }
+  if (!nativeBody?.boardContactPoint) {
+    contactPoint[normalAxis] = normal.endsWith("-")
+      ? nativeBounds.max[normalAxis]
+      : nativeBounds.min[normalAxis]
+    if (nativeBody && !cadComponent.model_origin_position) {
+      // Match the renderer adapters: the board datum is the contact patch,
+      // not the center of an overhanging body. Procedural models provide their
+      // own datum above, so through-hole pin tips do not become the board plane.
+      const axis = { x: 0, y: 1, z: 2 }[normalAxis]
+      const tolerance = Math.max(
+        1e-6,
+        (nativeBounds.max[normalAxis] - nativeBounds.min[normalAxis]) * 1e-5,
+      )
+      const min = jscad.maths.vec3.fromValues(Infinity, Infinity, Infinity)
+      const max = jscad.maths.vec3.fromValues(-Infinity, -Infinity, -Infinity)
+      for (const solid of nativeBody.solids) {
+        for (const polygon of jscad.geometries.geom3.toPolygons(solid)) {
+          for (const point of polygon.vertices) {
+            if (Math.abs(point[axis]! - contactPoint[normalAxis]) > tolerance)
+              continue
+            jscad.maths.vec3.min(min, min, point)
+            jscad.maths.vec3.max(max, max, point)
+          }
+        }
+      }
+      if (![...min, ...max].every(Number.isFinite)) {
+        throw new Error(
+          `${cadComponent.cad_component_id}: could not measure the board contact patch`,
+        )
+      }
+      const center = jscad.maths.vec3.lerp(
+        jscad.maths.vec3.create(),
+        min,
+        max,
+        0.5,
+      )
+      contactPoint.x = center[0]
+      contactPoint.y = center[1]
+      contactPoint.z = center[2]
+    }
+  }
+  const placement = getCadModelPlacement(
+    {
+      ...cadComponent,
+      size,
+      // An unloaded asset has no measurable contact patch. Use the explicit
+      // conservative-envelope alignment instead of inventing a contact datum.
+      model_origin_alignment:
+        !nativeBody &&
+        !cadComponent.model_origin_position &&
+        cadComponent.model_origin_alignment ===
+          "center_of_component_on_board_surface"
+          ? "bottom_center_of_component"
+          : cadComponent.model_origin_alignment,
     },
+    {
+      nativeBounds,
+      nativeToCanonicalModel: mat4.create(),
+      boardContactPoint: nativeBody ? contactPoint : undefined,
+      sizeSpace: "native",
+      boardToWorld: mat4.fromTranslation(new Float64Array(16), [
+        boardCenter.x,
+        boardCenter.y,
+        0,
+      ]),
+    },
+  )
+  if (!placement.nativeToBoard) {
+    throw new Error(
+      `${cadComponent.cad_component_id}: CAD placement did not resolve the supplied board frame`,
+    )
+  }
+  const matrix = Array.from(placement.nativeToBoard)
+  assertTransformMatrix(matrix)
+  let bounds: CadModelBounds
+  if (nativeBody) {
+    const [min, max] = jscad.measurements.measureAggregateBoundingBox(
+      nativeBody.solids.map((solid) =>
+        jscad.transforms.transform(matrix, solid),
+      ),
+    )
+    bounds = {
+      min: { x: min[0], y: min[1], z: min[2] },
+      max: { x: max[0], y: max[1], z: max[2] },
+    }
+  } else {
+    // Measure the native envelope in board space directly: rounded world bounds
+    // can lose small dimensions when the board is far from the world origin.
+    const box = new Box3(
+      new Vector3(nativeBounds.min.x, nativeBounds.min.y, nativeBounds.min.z),
+      new Vector3(nativeBounds.max.x, nativeBounds.max.y, nativeBounds.max.z),
+    ).applyMatrix4(new Matrix4().fromArray(matrix))
+    bounds = {
+      min: { x: box.min.x, y: box.min.y, z: box.min.z },
+      max: { x: box.max.x, y: box.max.y, z: box.max.z },
+    }
+  }
+  const nativePlans: JscadOperation[] | undefined = nativeBody?.solids.map(
+    (solid) => ({
+      type: "createGeom3",
+      polygons: jscad.geometries.geom3.toPolygons(solid),
+    }),
+  )
+  return {
+    bounds,
+    solid: nativePlans
+      ? {
+          type: "jscad",
+          jscadPlan: {
+            type: "transform",
+            matrix,
+            shape:
+              nativePlans.length === 1
+                ? nativePlans[0]!
+                : { type: "union", shapes: nativePlans },
+          },
+        }
+      : undefined,
+    size: {
+      x: bounds.max.x - bounds.min.x,
+      y: bounds.max.y - bounds.min.y,
+      z: bounds.max.z - bounds.min.z,
+    },
+    aboveBoardHeight: Math.max(
+      0,
+      pcbComponent.layer === "bottom"
+        ? boardSurfaceZ - bounds.min.z
+        : bounds.max.z - boardSurfaceZ,
+    ),
+    rotation: 0,
+    footprint,
   }
 }

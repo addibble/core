@@ -346,6 +346,12 @@ export const getEnclosureMountInputs = ({
       // clamped stack and rounds up to a stocked size. A screw never authors
       // one; a bolt may, and is then checked against the same bounds.
       length: bolt?._parsedProps.length,
+      threadEngagement: screw?._parsedProps.threadEngagement,
+      pilotDiameter: screw?._parsedProps.pilotDiameter,
+      bottomClearance: screw?._parsedProps.bottomClearance,
+      boreEntryChamfer: screw?._parsedProps.boreEntryChamfer,
+      insertBottomClearance: insert?._parsedProps.bottomClearance,
+      insertBoreEntryChamfer: insert?._parsedProps.boreEntryChamfer,
     })
   }
 

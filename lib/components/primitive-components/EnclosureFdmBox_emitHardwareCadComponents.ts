@@ -1,4 +1,13 @@
-import type { CreateFdmEnclosureInput } from "@tscircuit/create-fdm-enclosure"
+import {
+  applyMat4ToPoint3,
+  composeMat4,
+  mat4,
+} from "@tscircuit/circuit-json-util"
+import type {
+  CreateFdmEnclosureInput,
+  HardwareOccurrence,
+} from "@tscircuit/create-fdm-enclosure"
+import { Euler, MathUtils, Matrix4 } from "three"
 import type { EnclosureFdmBox } from "./EnclosureFdmBox"
 
 /**
@@ -22,23 +31,6 @@ import type { EnclosureFdmBox } from "./EnclosureFdmBox"
  * changes shape and nothing else does.
  */
 
-type HardwareOccurrence = {
-  id: string
-  role: string
-  mountId: string
-  designation: string
-  /**
-   * A modelprinter model string, or null for a piece with no modelprinter
-   * family -- a press-fit insert today. Null is a BOM line that is not drawn,
-   * which is better than one drawn as something else.
-   */
-  hardwareString: string | null
-  displayValue: string
-  manufacturerPartNumber?: string
-  supplierPartNumbers?: Record<string, string[]>
-  position: { x: number; y: number; z: number }
-}
-
 export const emitEnclosureHardwareCadComponents = ({
   component,
   hardware,
@@ -48,12 +40,17 @@ export const emitEnclosureHardwareCadComponents = ({
   component: EnclosureFdmBox
   hardware: HardwareOccurrence[]
   mounts: CreateFdmEnclosureInput["mounts"]
-  /** Where the enclosure's own origin sits, in board coordinates. */
+  /** Enclosure-origin POINT in right-handed Circuit JSON Z-up world, mm. */
   enclosureOrigin: { x: number; y: number; z: number }
 }): void => {
   const root = component.root
   if (!root || root.pcbDisabled) return
   const { db } = root
+  const worldFromEnclosure = mat4.fromTranslation(new Float64Array(16), [
+    enclosureOrigin.x,
+    enclosureOrigin.y,
+    enclosureOrigin.z,
+  ])
 
   // The solver emits modelprinter's own vocabulary, so there is nothing to
   // translate. There used to be: it spelled a bolt `screw_` and an insert
@@ -64,6 +61,22 @@ export const emitEnclosureHardwareCadComponents = ({
   for (const piece of hardware) {
     const modelprinterString = piece.hardwareString
     if (!modelprinterString) continue
+    const worldFromPart = composeMat4(
+      worldFromEnclosure,
+      piece.enclosureFromPart,
+    )
+    const position = applyMat4ToPoint3(worldFromPart, { x: 0, y: 0, z: 0 })
+    // Circuit JSON currently serializes intrinsic XYZ degrees. Decompose only
+    // here, after the solver's complete datum-to-target placement is composed.
+    const angles = new Euler().setFromRotationMatrix(
+      new Matrix4().fromArray(worldFromPart),
+      "XYZ",
+    )
+    const rotation = {
+      x: MathUtils.radToDeg(angles.x),
+      y: MathUtils.radToDeg(angles.y),
+      z: MathUtils.radToDeg(angles.z),
+    }
 
     const sourceComponent = db.source_component.insert({
       ftype: "simple_chip",
@@ -77,8 +90,8 @@ export const emitEnclosureHardwareCadComponents = ({
     // take part in placement or DRC. The same shape enclosure.fdm.box uses.
     const pcbComponent = db.pcb_component.insert({
       center: {
-        x: enclosureOrigin.x + piece.position.x,
-        y: enclosureOrigin.y + piece.position.y,
+        x: position.x,
+        y: position.y,
       },
       width: 0,
       height: 0,
@@ -91,19 +104,15 @@ export const emitEnclosureHardwareCadComponents = ({
     } as never)
 
     db.cad_component.insert({
-      position: {
-        x: enclosureOrigin.x + piece.position.x,
-        y: enclosureOrigin.y + piece.position.y,
-        z: enclosureOrigin.z + piece.position.z,
-      },
-      rotation: { x: 0, y: 0, z: 0 },
+      position,
+      rotation,
       pcb_component_id: pcbComponent.pcb_component_id,
       source_component_id: sourceComponent.source_component_id,
       // The specification travels, not a solid: ~20 bytes rather than a plan of
       // ~250 or a mesh of kilobytes, and a renderer that knows the vocabulary
       // builds it. jscad-assembly-hardware builds every model in the same
-      // frame the solver placed it in -- +Z along the axis, origin at the
-      // seating face -- so the position above is all the placement it needs.
+      // native frame the solver placed it in. Its selected physical datum is
+      // already accounted for in enclosureFromPart, not reconstructed here.
       //
       // Carried in `footprinter_string`, which is the one field Circuit JSON
       // has for "a model named by a string". The name is historical: the

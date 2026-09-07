@@ -8,15 +8,15 @@ test("authored insert chamfer ratio cuts the requested entry in the emitted boss
   const { shell, boardBottomY, axisX } =
     await getEnclosureReviewFastenerFixture(
       import.meta.path,
-      { insert: { boreEntryChamfer: 2 } },
-      "2x M3 chamfer (6mm mouth)",
+      { insert: { boreEntryChamfer: 1.4 } },
+      "1.4x 4mm installation bore (5.6mm mouth)",
     )
-  // The standard M3 install bore is narrower than this point; a 6mm mouth at
-  // 45 degrees removes it. The deliberately different ratio distinguishes it.
+  // 1.4 * 4 = 5.6mm, so the 45-degree mouth reaches 2.65mm at this depth.
+  // A nominal-thread interpretation (4.2mm mouth) would leave this probe solid.
   expect(
     enclosureReviewProbeVolume(
       shell,
-      [axisX("heatsetinsert", "authored") + 2.65, boardBottomY - 0.15, 0],
+      [axisX("heatsetinsert", "authored") + 2.5, boardBottomY - 0.15, 0],
       [0.1, 0.1, 0.1],
     ),
   ).toBeLessThan(1e-6)

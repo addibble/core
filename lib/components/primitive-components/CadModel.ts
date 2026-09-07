@@ -11,6 +11,7 @@ import { z } from "zod"
 import { getFileExtension } from "../base-components/NormalComponent/utils/getFileExtension"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
 import { CadModel_renderInAssembly } from "./CadModel_renderInAssembly"
+import { cacheEnclosureCadModelBounds } from "./get-enclosure-cad-model-body"
 import { findParentAssembly } from "./resolve-assembly-placement"
 
 const rotation = z.union([z.number(), z.string()])
@@ -165,6 +166,12 @@ export class CadModel extends PrimitiveComponent<typeof cadmodelProps> {
     } as CadComponent)
 
     this.cad_component_id = cadComponent.cad_component_id
+    if (props.modelBounds) {
+      cacheEnclosureCadModelBounds(this, cadComponent, {
+        min: point3.parse(props.modelBounds.min),
+        max: point3.parse(props.modelBounds.max),
+      })
+    }
   }
 
   private _findParentWithPcbComponent(): any {

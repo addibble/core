@@ -30,7 +30,7 @@ const apertureWith = async (props: Record<string, unknown>) => {
             </footprint>
           }
           cadModel={{
-            objUrl: "https://example.com/x.obj",
+            stepUrl: "https://example.com/x.step",
             size: { x: 8, y: 4, z: 6 },
             modelOriginPosition: { x: 0, y: 0, z: -3 },
             modelBounds: {

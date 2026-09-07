@@ -79,6 +79,11 @@ test("generates an FDM enclosure and USB-C aperture with the enclosure solver", 
     face: "y_pos",
     center: { x: 0 },
   })
+  // The OBJ includes pins below its board datum. Center the opening on the
+  // measured body reach, not its total height or the authored opening height.
+  const body = enclosureSolverEvent!.solverParams.apertures[0]!.componentBody!
+  expect(body.size!.z).toBeCloseTo(4.101, 4)
+  expect(body.aboveBoardHeight).toBeCloseTo(3.250989, 4)
   expect(enclosureSolverEvent?.solverConstructorArgs).toEqual([
     enclosureSolverEvent?.solverParams,
   ])

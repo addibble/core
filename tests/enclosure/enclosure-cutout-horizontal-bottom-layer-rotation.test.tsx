@@ -47,7 +47,7 @@ test("a bottom-layer floor aperture rolls with its footprint, not CAD Z", async 
             </footprint>
           }
           cadModel={{
-            objUrl: "https://example.com/switch.obj",
+            stepUrl: "https://example.com/switch.step",
             pcbRotationOffset: 0,
             size: { x: 8, y: 5, z: 4 },
           }}

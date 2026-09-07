@@ -38,13 +38,9 @@ test("a y-normal model's emitted board-space body is contained by its solver env
   const component = solverInput.components?.find((component) =>
     component.id.includes("U1"),
   )
-  expect(component?.body).toMatchObject({
-    size: {
-      x: max[0] - min[0],
-      y: max[2] - min[2],
-    },
-    aboveBoardHeight: max[1] - min[1],
-  })
+  expect(component?.body.size?.x).toBeCloseTo(max[0] - min[0], 5)
+  expect(component?.body.size?.y).toBeCloseTo(max[2] - min[2], 5)
+  expect(component?.body.aboveBoardHeight).toBeCloseTo(max[1] - min[1], 5)
   expect(solverOutput.designRuleViolations).toEqual(
     expect.arrayContaining([
       expect.objectContaining({

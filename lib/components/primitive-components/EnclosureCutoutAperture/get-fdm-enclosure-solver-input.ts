@@ -176,11 +176,16 @@ export const getFdmEnclosureSolverInput = (
   // now needs the body too: a side-face opening is centred on the part's reach
   // above the board. Withholding it would silently fall back to centring on the
   // opening's own height.
-  const componentBody = getComponentBody({
+  const {
+    bounds: _bounds,
+    solid: _solid,
+    ...componentBody
+  } = getComponentBody({
     owner,
     pcbComponent,
     cadComponent,
     boardSurfaceZ,
+    boardCenter: pcbBoard.center,
   })
 
   const commonInput = {
@@ -198,8 +203,8 @@ export const getFdmEnclosureSolverInput = (
     // silkscreen. Never use `cadComponent.rotation.z` here: it also contains the
     // model asset's `pcbRotationOffset`, and on the bottom layer its Z scalar is
     // negated as one part of a full 3D Y-flip. Applying that scalar alone to a
-    // 2D aperture made a 45-degree floor slot rotate to -45 degrees. CAD
-    // rotation remains correct for `componentBody`, whose bounds are model-local.
+    // 2D aperture made a 45-degree floor slot rotate to -45 degrees. The full
+    // CAD matrix has already placed `componentBody` into board axes.
     // Side faces use `apertureAxisDirection` instead; there the board-Z rotation
     // is an approach angle rather than roll within the wall.
     rotation: pcbComponent.rotation ?? undefined,

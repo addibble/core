@@ -25,7 +25,7 @@ test("core projects a y-normal model's authored size into the solver's board-pla
   // outward from its bottom face. Do not use the exporter's resized mesh as
   // an oracle for this Core-to-solver contract; size.z is only a fallback.
   expect(component?.boardSide).toBe("bottom")
-  expect(component?.body.aboveBoardHeight).toBe(4)
-  expect(component?.body.size?.x).toBe(6)
-  expect(component?.body.size?.y).toBe(20)
+  expect(component?.body.aboveBoardHeight).toBeCloseTo(4, 5)
+  expect(component?.body.size?.x).toBeCloseTo(6, 5)
+  expect(component?.body.size?.y).toBeCloseTo(20, 5)
 })
