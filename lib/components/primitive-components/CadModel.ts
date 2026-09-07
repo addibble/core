@@ -8,6 +8,7 @@ import { decomposeTSR } from "transformation-matrix"
 import { getFileExtension } from "../base-components/NormalComponent/utils/getFileExtension"
 import { constructAssetUrl } from "lib/utils/constructAssetUrl"
 import { normalizeDegrees } from "@tscircuit/math-utils"
+import { cacheEnclosureCadModelBounds } from "./get-enclosure-cad-model-body"
 
 const rotation = z.union([z.number(), z.string()])
 const rotation3 = z.object({ x: rotation, y: rotation, z: rotation })
@@ -145,6 +146,12 @@ export class CadModel extends PrimitiveComponent<typeof cadmodelProps> {
     } as CadComponent)
 
     this.cad_component_id = cad.cad_component_id
+    if (props.modelBounds) {
+      cacheEnclosureCadModelBounds(this, cad, {
+        min: point3.parse(props.modelBounds.min),
+        max: point3.parse(props.modelBounds.max),
+      })
+    }
   }
 
   private _findParentWithPcbComponent(): any {

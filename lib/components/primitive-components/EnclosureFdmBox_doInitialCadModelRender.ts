@@ -98,6 +98,24 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
   }
 
   const output = solver.getOutput()
+  const reported = new Set<string>()
+  for (const violation of output.designRuleViolations) {
+    const message = `${component.name}: [${violation.rule}] ${violation.message}`
+    const key = `${violation.severity}:${message}`
+    if (reported.has(key)) continue
+    reported.add(key)
+    if (violation.severity === "error") {
+      db.pcb_placement_error.insert({
+        error_type: "pcb_placement_error",
+        message,
+        is_fatal: false,
+      })
+    } else {
+      // Circuit JSON has no mechanical-warning record yet. Nothing was
+      // ignored, and promoting this to a placement error would change severity.
+      console.warn(message)
+    }
+  }
   db.pcb_component.update(component.pcb_component_id, {
     center: pcbBoard.center,
     width: output.dimensions.width,
@@ -128,6 +146,8 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
       model_jscad: part.jscadPlan,
       model_unit_to_mm_scale_factor: 1,
       model_object_fit: "contain_within_bounds",
+      // These plans already share the enclosure frame; never recenter each part.
+      model_origin_position: { x: 0, y: 0, z: 0 },
       model_origin_alignment: "bottom_center_of_component",
       anchor_alignment: "center",
       show_as_translucent_model: false,

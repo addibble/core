@@ -71,6 +71,7 @@ import { ZodType, z } from "zod"
 import { InvalidProps } from "../../../errors/InvalidProps"
 import { CadAssembly } from "../../primitive-components/CadAssembly"
 import { CadModel } from "../../primitive-components/CadModel"
+import { cacheEnclosureCadModelBounds } from "../../primitive-components/get-enclosure-cad-model-body"
 import { Footprint } from "../../primitive-components/Footprint"
 import { Port } from "../../primitive-components/Port"
 import { SymbolComponent } from "../../primitive-components/Symbol"
@@ -2012,6 +2013,12 @@ export class NormalComponent<
       show_as_translucent_model: this._parsedProps.showAsTranslucentModel,
     } as any)
     this.cad_component_id = cad_model.cad_component_id
+    if (cadModel?.modelBounds) {
+      cacheEnclosureCadModelBounds(this, cad_model, {
+        min: point3.parse(cadModel.modelBounds.min),
+        max: point3.parse(cadModel.modelBounds.max),
+      })
+    }
   }
 
   private _addCachebustToModelUrl(url?: string): string | undefined {

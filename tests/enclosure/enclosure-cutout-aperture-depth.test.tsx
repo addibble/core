@@ -33,7 +33,10 @@ const renderWith = (
           footprint={footprint}
           cadModel={
             cadSize
-              ? ({ objUrl: "https://example.com/x.obj", size: cadSize } as any)
+              ? ({
+                  stepUrl: "https://example.com/x.step",
+                  size: cadSize,
+                } as any)
               : undefined
           }
         >
@@ -52,10 +55,12 @@ const renderWith = (
   return event!.solverParams.apertures[0]
 }
 
-test("the CAD body is reported in the part's own frame", () => {
+test("an unloaded CAD body's conservative size is reported in board axes", () => {
   // Footprint is a single 2mm pad; the declared body is 15mm deep.
   const aperture = renderWith({}, { x: 6, y: 15, z: 8 })
-  expect(aperture.componentBody.size).toMatchObject({ x: 6, y: 15, z: 8 })
+  expect(aperture.componentBody.size.x).toBeCloseTo(6, 5)
+  expect(aperture.componentBody.size.y).toBeCloseTo(15, 5)
+  expect(aperture.componentBody.size.z).toBeCloseTo(8, 5)
   expect(aperture.depth).toBeUndefined()
 })
 
@@ -82,5 +87,7 @@ test("an authored depth wins, but the body is still reported", () => {
   // opening is centred on the part's reach above the board. The solver already
   // prefers the authored depth, so reporting the body cannot override it.
   expect(aperture.componentBody).toBeDefined()
-  expect(aperture.componentBody.size).toMatchObject({ x: 6, y: 15, z: 8 })
+  expect(aperture.componentBody.size.x).toBeCloseTo(6, 5)
+  expect(aperture.componentBody.size.y).toBeCloseTo(15, 5)
+  expect(aperture.componentBody.size.z).toBeCloseTo(8, 5)
 })

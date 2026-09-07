@@ -31,7 +31,7 @@ test("every part on the board reaches the solver, measured where a model says so
           pcbX={-12}
           pcbY={-6}
           cadModel={{
-            objUrl: "https://example.com/u1.obj",
+            stepUrl: "https://example.com/u1.step",
             size: { x: 6, y: 6, z: 4 },
             modelOriginPosition: { x: 0, y: 0, z: -2 },
             modelBounds: {
@@ -68,7 +68,9 @@ test("every part on the board reaches the solver, measured where a model says so
   // off the board. `size.z` happens to agree here; for a part with pins or a
   // through-board shell it would not, which is why the bounds are preferred.
   expect(u1.body.aboveBoardHeight).toBeCloseTo(4)
-  expect(u1.body.size).toMatchObject({ x: 6, y: 6, z: 4 })
+  expect(u1.body.size.x).toBeCloseTo(6, 5)
+  expect(u1.body.size.y).toBeCloseTo(6, 5)
+  expect(u1.body.size.z).toBeCloseTo(4, 5)
 
   // R1 authored no `cadModel` at all -- only `footprint="0402"`. Its body is the
   // generic one behind that name, built and measured here because `cad_component`

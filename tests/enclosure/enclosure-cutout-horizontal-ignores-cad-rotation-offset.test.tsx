@@ -44,7 +44,7 @@ test("a lid aperture ignores the CAD asset rotation offset", async () => {
             </footprint>
           }
           cadModel={{
-            objUrl: "https://example.com/switch-native-y.obj",
+            stepUrl: "https://example.com/switch-native-y.step",
             pcbRotationOffset: 90,
             size: { x: 8, y: 5, z: 4 },
           }}

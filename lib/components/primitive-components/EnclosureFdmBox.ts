@@ -2,6 +2,7 @@ import { enclosureFdmBoxProps } from "@tscircuit/props"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
 import { EnclosureFdmBox_doInitialCadModelRender } from "./EnclosureFdmBox_doInitialCadModelRender"
 import { getReferencedEnclosureBoard } from "./get-referenced-enclosure-board"
+import { loadEnclosureCadModelAssets } from "./get-enclosure-cad-model-body"
 
 export class EnclosureFdmBox extends PrimitiveComponent<
   typeof enclosureFdmBoxProps
@@ -57,7 +58,17 @@ export class EnclosureFdmBox extends PrimitiveComponent<
     this.pcb_component_id = pcbComponent.pcb_component_id
   }
 
-  doInitialCadModelRender(): void {
-    EnclosureFdmBox_doInitialCadModelRender(this)
+  doInitialEnclosureRender(): void {
+    if (!this.root || this.root.pcbDisabled) return
+    const board = getReferencedEnclosureBoard(this, this._parsedProps.boardRef)
+    const loading = loadEnclosureCadModelAssets(board)
+    if (loading) {
+      this._queueAsyncEffect("load-enclosure-cad-bodies", async () => {
+        await loading
+        EnclosureFdmBox_doInitialCadModelRender(this)
+      })
+    } else {
+      EnclosureFdmBox_doInitialCadModelRender(this)
+    }
   }
 }
