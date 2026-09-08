@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { screwHeads } from "@tscircuit/props"
+import { createFdmEnclosure } from "@tscircuit/create-fdm-enclosure"
 import { assembly, enclosure } from "lib"
 import { getTestFixture } from "tests/fixtures/get-test-fixture"
 
@@ -154,9 +154,7 @@ test("an enclosure does not adopt another board's hardware", async () => {
  * wrong head makes wrong.
  */
 test("the authored head reaches the emitted part", async () => {
-  const headOf = async (
-    head?: "socketcap" | "countersunk" | "panhead" | "buttonhead",
-  ) => {
+  const headOf = async (head?: string) => {
     const { circuit } = getTestFixture()
     circuit.add(
       (
@@ -197,12 +195,25 @@ test("a countersunk head on a board mount is refused, and says why", async () =>
   )
   expect(message).toContain("countersunk")
   expect(message).toContain("bears on the PCB")
-  // Every head the message tells the author to use must be one props accepts.
-  // It used to suggest `head="socket_cap", "pan" or "button"` -- the solver's
-  // own spelling, all three of which props rejects -- and this test passed
-  // anyway, because it only looked for the word "countersunk".
+  // Recommendations must actually resolve downstream, not merely pass props'
+  // nonempty-string validation.
   for (const suggested of message.match(/head="([a-z_]+)"/g) ?? []) {
     const head = suggested.slice('head="'.length, -1)
-    expect(screwHeads).toContain(head as (typeof screwHeads)[number])
+    expect(() =>
+      createFdmEnclosure({
+        board: { width: 40, height: 24, thickness: 1.6 },
+        standoffHeight: 8,
+        mounts: [
+          {
+            id: "EN1.H1",
+            fastens: "board",
+            anchor: { x: -8, y: 0 },
+            thread: "m3",
+            fastening: "self_tapping",
+            head,
+          },
+        ],
+      }),
+    ).not.toThrow()
   }
 })

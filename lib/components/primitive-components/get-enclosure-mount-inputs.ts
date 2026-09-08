@@ -40,7 +40,7 @@ type MountOwner = Hole | PlatedHole
  * and a flat head bearing on a cone touches only at its rim.
  */
 const toSolverHeadRecess = (
-  head: string,
+  head: string | undefined,
   recessed: boolean,
 ): EnclosureMountInput["headRecess"] => {
   if (!recessed) return "none"
@@ -51,9 +51,10 @@ const toSolverHeadRecess = (
  * There is no thread or head translation here any more, and that is the point.
  *
  * props, `@tscircuit/modelprinter` and `@tscircuit/create-fdm-enclosure` now
- * share one spelling (`m3`, `socketcap`, `panhead`, `buttonhead`). There used
+ * use the authored spelling (`m3`, `socketcap`, `panhead`, `buttonhead`). There used
  * to be two, converted in this direction only -- so every message the solver
- * raised told an author to write `head="socket_cap"`, which props rejects.
+ * raised told an author to write a different spelling. Head validation now
+ * belongs downstream; core must not replace an unknown authored name.
  */
 
 /**
@@ -316,9 +317,8 @@ export const getEnclosureMountInputs = ({
       fastening: screw ? "self_tapping" : "heat_set_insert",
       // The head belongs to whichever fastener is actually there: a screw drives
       // into the boss, a bolt into the insert, and only that one has a head
-      // bearing on anything. Defaulted rather than required, so an author who
-      // has not thought about heads still gets a fastener that fits.
-      head: (screw ?? bolt)?._parsedProps.head ?? "socketcap",
+      // bearing on anything. Preserve omission and unknown names for the solver.
+      head: (screw ?? bolt)?._parsedProps.head,
       // Passed through only when authored. Whether the head is sunk is a
       // separate decision from which head it is -- a cap head sitting proud is
       // perfectly normal -- but the KIND of recess is not: it follows from the
@@ -327,7 +327,7 @@ export const getEnclosureMountInputs = ({
       ...((screw ?? bolt)?._parsedProps.headRecess !== undefined
         ? {
             headRecess: toSolverHeadRecess(
-              (screw ?? bolt)?._parsedProps.head ?? "socketcap",
+              (screw ?? bolt)?._parsedProps.head,
               Boolean((screw ?? bolt)!._parsedProps.headRecess),
             ),
           }
