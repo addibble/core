@@ -228,6 +228,8 @@ export class Group<Props extends z.ZodType<any, any, any> = typeof groupProps>
   _standaloneSubcircuitDrcChecksInProgress = false
 
   _isInflatedFromCircuitJson = false
+  /** Original naming scope only; imported routing remains flattened. */
+  _isImportedSourceNameScope = false
 
   _isolatedCircuitJson: AnyCircuitElement[] | null = null
 

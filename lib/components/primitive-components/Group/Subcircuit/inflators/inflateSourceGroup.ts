@@ -15,8 +15,6 @@ export function inflateSourceGroup(
 
   const groupProps: GroupProps = {
     name: sourceGroup.name ?? `inflated_group_${sourceGroup.source_group_id}`,
-    // Preserve naming scopes so A.EX and B.EX survive duplicate-name removal.
-    subcircuit: sourceGroup.is_subcircuit,
   }
 
   if (
@@ -46,6 +44,7 @@ export function inflateSourceGroup(
   // Create a Group instance
   const group = new Group(groupProps)
   group._isInflatedFromCircuitJson = true
+  group._isImportedSourceNameScope = sourceGroup.is_subcircuit ?? false
 
   // Set the source_group_id so the group can be found
   group.source_group_id = sourceGroup.source_group_id

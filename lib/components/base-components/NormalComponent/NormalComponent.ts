@@ -240,11 +240,27 @@ export class NormalComponent<
 
     const nameMap = this.getSubcircuit().getNormalComponentNameMap?.()
     const componentsWithSameName = nameMap?.get(this.props.name) ?? []
+    const getNameScope = (component: NormalComponent) => {
+      let ancestor = component.parent
+      while (ancestor) {
+        if (
+          ancestor.isSubcircuit ||
+          ("_isImportedSourceNameScope" in ancestor &&
+            ancestor._isImportedSourceNameScope === true)
+        ) {
+          return ancestor
+        }
+        ancestor = ancestor.parent
+      }
+      return null
+    }
+    const nameScope = getNameScope(this)
 
     // Check if any of these components have already been processed (initialized this phase)
     const conflictingComponents = componentsWithSameName.filter(
       (component: NormalComponent) =>
         component !== this &&
+        getNameScope(component) === nameScope &&
         component.renderPhaseStates.SourceNameDuplicateComponentRemoval
           .initialized,
     )
