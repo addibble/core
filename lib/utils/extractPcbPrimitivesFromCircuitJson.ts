@@ -58,6 +58,7 @@ export const extractPcbPrimitivesFromCircuitJson = ({
     {
       componentName,
       componentRotation: "0deg",
+      referenceCircuitJson: db.toArray(),
     },
     clonedRelativeElements,
   )

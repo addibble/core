@@ -27,7 +27,7 @@ test("moving a part removes stale mounting DRC without deleting authored output 
   const oldErrors = [
     ...checkPcbComponentOverKeepout(circuit.getCircuitJson()),
     ...checkPcbCopperOverKeepout(circuit.getCircuitJson()),
-  ]
+  ].filter((error) => error.message.includes("BOTTOM"))
   expect(oldErrors.length).toBeGreaterThan(0)
   const routingEvents: string[] = []
   circuit.on("solver:started", (event) => routingEvents.push(event.solverName))
@@ -40,6 +40,11 @@ test("moving a part removes stale mounting DRC without deleting authored output 
         .some((error) => error.message === old.message),
     ).toBe(false)
   }
+  expect(
+    circuit.db.pcb_placement_error
+      .list()
+      .some((error) => error.message.includes("TOP")),
+  ).toBe(true)
   expect(circuit.db.pcb_keepout.get(authoredKeepout.pcb_keepout_id)).toEqual(
     authoredKeepout,
   )

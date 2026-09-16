@@ -185,6 +185,7 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
     component.insertGeneratedElement({
       type: "pcb_keepout",
       pcb_keepout_id: `${component.source_component_id}_${keepout.id}`,
+      pcb_component_id: component.pcb_component_id,
       shape: "circle",
       // Solver points are board-relative, right-handed XY millimetres (+Z up).
       center: {

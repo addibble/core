@@ -9,6 +9,9 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
   pcb_keepout_id: string | null = null
 
   isPcbPrimitive = true
+  // Preserve an explicit imported exemption without retaining its old PCB ID.
+  importedOwnerIsExcluded = false
+  importedDescription?: PCBKeepout["description"]
 
   get config() {
     return {
@@ -26,6 +29,10 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
           .filter((id): id is PcbComponentId => id !== null),
       ) ?? []
 
+    const ownerId = this.getPrimitiveContainer()?.pcb_component_id
+    if (this.importedOwnerIsExcluded && ownerId) {
+      excludedPcbComponentIds.push(ownerId)
+    }
     return Array.from(new Set(excludedPcbComponentIds))
   }
 
@@ -47,6 +54,9 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
     if (!layers) {
       layers = ["top"]
     }
+    const { maybeFlipLayer } = this._getPcbPrimitiveFlippedHelpers()
+    layers = layers.map(maybeFlipLayer)
+    const pcbComponentId = this.getPrimitiveContainer()?.pcb_component_id
     const excludedPcbComponentIds = this.getExcludedPcbComponentIds()
     const pcbKeepoutExclusionProps =
       excludedPcbComponentIds.length > 0
@@ -59,6 +69,8 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
         layers,
         shape: "circle",
         ...pcbKeepoutExclusionProps,
+        pcb_component_id: pcbComponentId ?? undefined,
+        description: this.importedDescription,
         // @ts-ignore: no idea why this is triggering
         radius: props.radius,
         center: {
@@ -73,6 +85,8 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
         layers,
         shape: "rect",
         ...pcbKeepoutExclusionProps,
+        pcb_component_id: pcbComponentId ?? undefined,
+        description: this.importedDescription,
         ...(isRotated90
           ? { width: props.height, height: props.width }
           : { width: props.width, height: props.height }),

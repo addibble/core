@@ -39,12 +39,14 @@ test("bottom mounting keepouts catch through-hole copper but never another board
     .subtree({ subcircuit_id: board.subcircuit_id })
     .toArray()
   const copperErrors = checkPcbCopperOverKeepout(boardJson)
-  expect(copperErrors).toHaveLength(1)
-  expect(
-    circuit.db.pcb_placement_error
-      .list()
-      .filter((error) => error.message === copperErrors[0]!.message),
-  ).toHaveLength(1)
+  expect(copperErrors).toHaveLength(2)
+  for (const expected of copperErrors) {
+    expect(
+      circuit.db.pcb_placement_error
+        .list()
+        .filter((error) => error.message === expected.message),
+    ).toHaveLength(1)
+  }
   expect(
     circuit.db.pcb_placement_error
       .list()

@@ -8,12 +8,21 @@ test("authored zero and unit-bearing margins change actual generated support rad
   ] as const) {
     const { generatedKeepouts, solverOutput, solverInput } =
       await getMountingKeepoutFixture({ mountingKeepoutMargin: margin })
-    const keepout = generatedKeepouts()[0]
+    const keepout = generatedKeepouts().find((keepout) =>
+      keepout.layers.includes("bottom"),
+    )
     if (keepout?.shape !== "circle")
       throw new Error("Expected circular keepout")
     expect(solverInput.mountingKeepoutMargin).toBe(expected)
     expect(keepout.radius).toBeCloseTo(
       solverOutput.mounts[0]!.bossDiameterMm / 2 + expected,
+    )
+    const head = generatedKeepouts().find((keepout) =>
+      keepout.layers.includes("top"),
+    )
+    if (head?.shape !== "circle") throw new Error("Expected head keepout")
+    expect(head.radius).toBeCloseTo(
+      solverOutput.mounts[0]!.fastener.head.diameterMm / 2 + expected,
     )
   }
 })

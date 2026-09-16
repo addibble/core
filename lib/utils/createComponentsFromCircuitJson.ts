@@ -2,6 +2,7 @@ import { getUnitVectorFromDirection } from "@tscircuit/math-utils"
 import type { PinLabelsProp } from "@tscircuit/props"
 import {
   pcb_via,
+  layer_ref,
   type AnyCircuitElement,
   type SchematicComponent,
 } from "circuit-json"
@@ -117,12 +118,14 @@ export const createComponentsFromCircuitJson = (
     footprinterString,
     pinLabels,
     pcbPinLabels,
+    referenceCircuitJson,
   }: {
     componentName: string
     componentRotation: string
     footprinterString?: string
     pinLabels?: PinLabelsProp
     pcbPinLabels?: PinLabelsProp
+    referenceCircuitJson?: AnyCircuitElement[]
   },
   circuitJson: AnyCircuitElement[],
 ): PrimitiveComponent[] => {
@@ -460,25 +463,64 @@ export const createComponentsFromCircuitJson = (
           }),
         )
       }
-    } else if (elm.type === "pcb_keepout" && elm.shape === "circle") {
-      components.push(
-        new Keepout({
-          pcbX: elm.center.x,
-          pcbY: elm.center.y,
-          shape: "circle",
-          radius: elm.radius,
-        }),
+    } else if (
+      elm.type === "pcb_keepout" &&
+      (elm.shape === "circle" || elm.shape === "rect")
+    ) {
+      const references = referenceCircuitJson ?? circuitJson
+      const footprintComponents = circuitJson.filter(
+        (element) => element.type === "pcb_component",
       )
-    } else if (elm.type === "pcb_keepout" && elm.shape === "rect") {
-      components.push(
-        new Keepout({
-          pcbX: elm.center.x,
-          pcbY: elm.center.y,
-          shape: "rect",
-          width: elm.width,
-          height: elm.height,
-        }),
-      )
+      const importedOwnerId =
+        elm.pcb_component_id ??
+        (footprintComponents.length === 1
+          ? footprintComponents[0]!.pcb_component_id
+          : undefined)
+      const excludedIds = elm.excluded_pcb_component_ids ?? []
+      const excludeRefs = excludedIds
+        .filter((id) => id !== importedOwnerId)
+        .map((id) => {
+          const pcbComponent = references.find(
+            (element) =>
+              element.type === "pcb_component" &&
+              element.pcb_component_id === id,
+          )
+          const sourceComponent =
+            pcbComponent?.type === "pcb_component"
+              ? references.find(
+                  (element) =>
+                    element.type === "source_component" &&
+                    element.source_component_id ===
+                      pcbComponent.source_component_id,
+                )
+              : undefined
+          if (
+            sourceComponent?.type !== "source_component" ||
+            references.filter(
+              (element) =>
+                element.type === "source_component" &&
+                element.name === sourceComponent.name,
+            ).length !== 1
+          ) {
+            throw new Error(
+              `Cannot restore keepout "${elm.pcb_keepout_id}" exclusion "${id}": expected a uniquely named source component`,
+            )
+          }
+          return `[name=${JSON.stringify(sourceComponent.name)}]`
+        })
+      const keepout = new Keepout({
+        pcbX: elm.center.x,
+        pcbY: elm.center.y,
+        layers: elm.layers.map((layer) => layer_ref.parse(layer)),
+        excludeRefs,
+        ...(elm.shape === "circle"
+          ? { shape: "circle", radius: elm.radius }
+          : { shape: "rect", width: elm.width, height: elm.height }),
+      })
+      keepout.importedOwnerIsExcluded =
+        importedOwnerId !== undefined && excludedIds.includes(importedOwnerId)
+      keepout.importedDescription = elm.description
+      components.push(keepout)
     } else if (elm.type === "pcb_hole" && elm.hole_shape === "circle") {
       components.push(
         new Hole({

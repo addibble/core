@@ -54,14 +54,20 @@ purchased spacer, and false or omission leaves the gap open. The solver
 selects hardware from the authored thread, head and installation requirements;
 each purchased piece receives source, synthetic PCB and CAD records.
 
-After CAD rendering, actual bottom bosses and top columns/spacers produce
-layer-specific circular PCB keepouts. `enclosure.fdm.box` accepts
+After CAD rendering, actual bottom bosses, board screw heads and top
+columns/spacers produce layer-specific circular PCB keepouts. `enclosure.fdm.box` accepts
 `mountingKeepoutMargin` as a distance, defaulting to `0.5mm`; zero removes the
 extra margin, not the support keepout. Component-footprint and copper DRC run
 again against these outputs. Editing placement or retention and rendering
 again replaces generated keepouts and stale diagnostics without automatically
 moving components or restarting routing. Authored keepouts and diagnostics
 are preserved. No external CAD model loading is needed for mounting clearance.
+
+A footprint's own keepout records its `pcb_component_id`. This suppresses only
+the owner's aggregate-footprint collision, not collisions with its copper.
+Explicit `excludeRefs` still opts selected components out of both checks.
+Imported footprint keepouts retain their layers and exclusions while their
+ownership is rebound to the newly rendered component.
 
 ## Non-React Usage
 

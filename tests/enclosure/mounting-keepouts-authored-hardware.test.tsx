@@ -12,9 +12,7 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
     const { circuit, solverOutput, generatedKeepouts, getSolveCount } =
       await getMountingKeepoutFixture({ kind })
     const keepouts = generatedKeepouts()
-    expect(keepouts).toHaveLength(
-      kind === "column" || kind === "spacer" ? 2 : 1,
-    )
+    expect(keepouts).toHaveLength(2)
     const boss = keepouts.find((keepout) => keepout.layers.includes("bottom"))
     if (boss?.shape !== "circle")
       throw new Error("Expected bottom boss keepout")
@@ -24,7 +22,11 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
     )
     const board = getReferencedEnclosureBoard(circuit.firstChild!, ".B1")
     expect(boss.subcircuit_id).toBe(board.subcircuit_id ?? undefined)
-    if (kind === "column" || kind === "spacer") {
+    expect(circuit.db.pcb_component.get(boss.pcb_component_id!)).toMatchObject({
+      do_not_place: true,
+      obstructs_within_bounds: false,
+    })
+    {
       const top = keepouts.find((keepout) => keepout.layers.includes("top"))
       if (top?.shape !== "circle")
         throw new Error("Expected top support keepout")
@@ -32,7 +34,9 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
       expect(top.radius).toBeCloseTo(
         (kind === "column"
           ? solverOutput.mounts[0]!.lidColumn!.diameterMm
-          : solverOutput.mounts[0]!.spacer!.spec.outerDiameterMm) /
+          : kind === "spacer"
+            ? solverOutput.mounts[0]!.spacer!.spec.outerDiameterMm
+            : solverOutput.mounts[0]!.fastener.head.diameterMm) /
           2 +
           0.5,
       )
@@ -46,7 +50,7 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
       componentErrors.some((error) => error.message.includes("BOTTOM")),
     ).toBe(true)
     expect(componentErrors.some((error) => error.message.includes("TOP"))).toBe(
-      kind === "column" || kind === "spacer",
+      true,
     )
     for (const expected of [...componentErrors, ...copperErrors]) {
       expect(
