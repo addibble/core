@@ -67,6 +67,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-reconciler": "^0.28.9",
+    "@types/three": "^0.179.0",
     "bpc-graph": "^0.0.57",
     "bun-match-svg": "0.0.12",
     "calculate-elbow": "^0.0.12",
@@ -129,6 +130,7 @@
     "performance-now": "^2.1.0",
     "react-reconciler": "^0.32.0",
     "svg-path-commander": "^2.1.11",
+    "three": "^0.179.1",
     "transformation-matrix": "^2.16.1",
     "zod": "^3.25.67"
   },

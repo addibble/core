@@ -28,6 +28,41 @@ circuit.add(
 circuit.getCircuitJson()
 ```
 
+## Enclosure mounting hardware
+
+Mounts can be nested in their board hole or reference it with `holeRef`:
+
+```tsx
+import { assembly, enclosure } from "@tscircuit/core"
+
+const device = (
+  <assembly.device>
+    <board name="B1" width="40mm" height="24mm">
+      <hole name="H1" diameter="3.4mm">
+        <enclosure.fdm.heatsetinsert thread="m3" />
+      </hole>
+    </board>
+    <assembly.bolt thread="m3" holeRef=".B1 .H1" fastensLid lidColumn />
+    <enclosure.fdm.box boardRef=".B1" standoffHeight="10mm" />
+  </assembly.device>
+)
+```
+
+Use `assembly.screw` without an insert for a self-tapping board mount.
+For lid bolts, `lidColumn` prints a support column, `"spacer"` selects a
+purchased spacer, and false or omission leaves the gap open. The solver
+selects hardware from the authored thread, head and installation requirements;
+each purchased piece receives source, synthetic PCB and CAD records.
+
+After CAD rendering, actual bottom bosses and top columns/spacers produce
+layer-specific circular PCB keepouts. `enclosure.fdm.box` accepts
+`mountingKeepoutMargin` as a distance, defaulting to `0.5mm`; zero removes the
+extra margin, not the support keepout. Component-footprint and copper DRC run
+again against these outputs. Editing placement or retention and rendering
+again replaces generated keepouts and stale diagnostics without automatically
+moving components or restarting routing. Authored keepouts and diagnostics
+are preserved. No external CAD model loading is needed for mounting clearance.
+
 ## Non-React Usage
 
 ```tsx

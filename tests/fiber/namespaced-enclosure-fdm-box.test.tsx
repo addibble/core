@@ -12,6 +12,7 @@ test("creates namespaced enclosure instances", () => {
   expect(instance._parsedProps).toEqual({
     boardRef: ".main-board",
     wallThickness: 2,
+    mountingKeepoutMargin: 0.5,
   })
   expect(
     createInstanceFromReactElement(

@@ -64,7 +64,9 @@ export const Board_doInitialPcbPlacementDesignRuleChecks = (board: Board) => {
           ),
       )
 
-      db.insertAll(newPlacementDiagnostics as AnyCircuitElement[])
+      board._generatedBoardDrcDiagnostics.push(
+        ...db.insertAll(newPlacementDiagnostics as AnyCircuitElement[]),
+      )
       board._pcbPlacementDrcErrorCount = relevantPlacementCheckResults.filter(
         (result) => result.type.endsWith("_error"),
       ).length

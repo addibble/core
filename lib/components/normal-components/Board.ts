@@ -9,6 +9,7 @@ import {
 } from "@tscircuit/checks"
 import { jlcMinTolerances } from "@tscircuit/jlcpcb-manufacturing-specs"
 import { getBoundsFromPoints } from "@tscircuit/math-utils"
+import { getElementId } from "@tscircuit/circuit-json-util"
 import { boardProps } from "@tscircuit/props"
 import type {
   AnyCircuitElement,
@@ -640,6 +641,35 @@ export class Board
     Board_doInitialPcbCopperPourCleanup(this)
   }
 
+  _enclosureDrcNeedsRefresh = false
+  _generatedBoardDrcDiagnostics: AnyCircuitElement[] = []
+
+  doInitialEnclosurePcbDesignRuleChecks(): void {
+    this.updateEnclosurePcbDesignRuleChecks()
+  }
+
+  updateEnclosurePcbDesignRuleChecks(): void {
+    if (!this._enclosureDrcNeedsRefresh || this._drcChecksInProgress) return
+    this._enclosureDrcNeedsRefresh = false
+    for (const diagnostic of this._generatedBoardDrcDiagnostics) {
+      this.root!.db[diagnostic.type].delete(getElementId(diagnostic))
+    }
+    this._generatedBoardDrcDiagnostics = []
+    this._drcChecksComplete = false
+    // Refresh diagnostics only: placement and routing are intentionally not reset.
+    this.updatePcbDesignRuleChecks()
+  }
+
+  override runRenderPhase(phase: RenderPhase): void {
+    if (
+      phase === "EnclosurePcbDesignRuleChecks" &&
+      this._enclosureDrcNeedsRefresh
+    ) {
+      this.renderPhaseStates.EnclosurePcbDesignRuleChecks.dirty = true
+    }
+    super.runRenderPhase(phase)
+  }
+
   updatePcbDesignRuleChecks() {
     const { db } = this.root!
 
@@ -789,10 +819,23 @@ export class Board
       }
 
       const checkResults = await Promise.all(checksToRun)
-      db.insertAll(
-        consolidatePcbOverlapErrors(
-          circuitJson,
-          dedupePcbDrcErrors(checkResults.flat()),
+      this._generatedBoardDrcDiagnostics.push(
+        ...db.insertAll(
+          consolidatePcbOverlapErrors(
+            circuitJson,
+            dedupePcbDrcErrors(checkResults.flat()),
+          ).filter(
+            (result) =>
+              !db
+                .toArray()
+                .some(
+                  (existing) =>
+                    existing.type === result.type &&
+                    "message" in existing &&
+                    "message" in result &&
+                    existing.message === result.message,
+                ),
+          ),
         ),
       )
     }

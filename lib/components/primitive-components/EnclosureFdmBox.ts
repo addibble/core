@@ -1,4 +1,8 @@
 import { enclosureFdmBoxProps } from "@tscircuit/props"
+import { getElementId } from "@tscircuit/circuit-json-util"
+import type { AnyCircuitElement } from "circuit-json"
+import type { RenderPhase } from "../base-components/Renderable"
+import type { Board } from "../normal-components/Board"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
 import { EnclosureFdmBox_doInitialCadModelRender } from "./EnclosureFdmBox_doInitialCadModelRender"
 import { getReferencedEnclosureBoard } from "./get-referenced-enclosure-board"
@@ -6,6 +10,53 @@ import { getReferencedEnclosureBoard } from "./get-referenced-enclosure-board"
 export class EnclosureFdmBox extends PrimitiveComponent<
   typeof enclosureFdmBoxProps
 > {
+  generatedElements: AnyCircuitElement[] = []
+  lastEnclosureInput: string | null = null
+  generatedForBoard: Board | null = null
+
+  insertGeneratedElement(
+    element: Extract<
+      AnyCircuitElement,
+      {
+        type:
+          | "source_component"
+          | "pcb_component"
+          | "cad_component"
+          | "pcb_keepout"
+          | "pcb_placement_error"
+      }
+    >,
+  ): void {
+    const { db } = this.root!
+    // Typed table inserts preserve the explicit ownership ID; the generic
+    // db.insert API always allocates a new one.
+    switch (element.type) {
+      case "source_component":
+        this.generatedElements.push(db.source_component.insert(element))
+        break
+      case "pcb_component":
+        this.generatedElements.push(db.pcb_component.insert(element))
+        break
+      case "cad_component":
+        this.generatedElements.push(db.cad_component.insert(element))
+        break
+      case "pcb_keepout":
+        this.generatedElements.push(db.pcb_keepout.insert(element))
+        break
+      case "pcb_placement_error":
+        this.generatedElements.push(db.pcb_placement_error.insert(element))
+        break
+    }
+  }
+
+  clearGeneratedElements(): void {
+    for (const element of this.generatedElements) {
+      this.root!.db[element.type].delete(getElementId(element))
+    }
+    this.generatedElements = []
+    this.cad_component_id = null
+  }
+
   get config() {
     return {
       componentName: "EnclosureFdmBox",
@@ -57,7 +108,29 @@ export class EnclosureFdmBox extends PrimitiveComponent<
     this.pcb_component_id = pcbComponent.pcb_component_id
   }
 
-  doInitialCadModelRender(): void {
+  override runRenderPhase(phase: RenderPhase): void {
+    // Sibling board edits do not dirty this assembly-level primitive. Compare
+    // solver inputs after CAD on each cycle, without invalidating PCB routing.
+    if (phase === "EnclosureRender") {
+      this.renderPhaseStates.EnclosureRender.dirty = true
+    }
+    super.runRenderPhase(phase)
+  }
+
+  doInitialEnclosureRender(): void {
     EnclosureFdmBox_doInitialCadModelRender(this)
+  }
+
+  updateEnclosureRender(): void {
+    EnclosureFdmBox_doInitialCadModelRender(this)
+  }
+
+  removeEnclosureRender(): void {
+    this.clearGeneratedElements()
+    if (this.generatedForBoard) {
+      this.generatedForBoard._enclosureDrcNeedsRefresh = true
+    }
+    this.generatedForBoard = null
+    this.lastEnclosureInput = null
   }
 }

@@ -2,17 +2,13 @@ import {
   type CreateFdmEnclosureInput,
   CreateFdmEnclosureSolver,
 } from "@tscircuit/create-fdm-enclosure"
-import type { PcbComponent } from "circuit-json"
+import { emitEnclosureHardwareCadComponents } from "./EnclosureFdmBox_emitHardwareCadComponents"
+import { getEnclosureMountInputs } from "./get-enclosure-mount-inputs"
 import { EnclosureCutoutAperture } from "./EnclosureCutoutAperture"
 import type { EnclosureFdmBox } from "./EnclosureFdmBox"
 import { getReferencedEnclosureBoard } from "./get-referenced-enclosure-board"
 
-/**
- * Consume the staged solver while preserving Core's published Circuit JSON
- * representation. The complete assembled plan remains one synthetic
- * `cad_component.model_jscad`; typed per-part records arrive in the later schema
- * migration without blocking the geometry/authoring rollout.
- */
+/** Solve after CAD, retaining the existing shell and component render frames. */
 export const EnclosureFdmBox_doInitialCadModelRender = (
   component: EnclosureFdmBox,
 ): void => {
@@ -55,6 +51,7 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
     standoffHeight: props.standoffHeight,
     topHeadroom: props.topHeadroom,
     lidLipDepth: props.lidLipDepth,
+    mountingKeepoutMargin: props.mountingKeepoutMargin,
     apertures: props.disableCutouts
       ? []
       : board
@@ -66,7 +63,32 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
           .map((aperture) =>
             aperture.getFdmEnclosureSolverInput({ board, pcbBoard }),
           ),
+    mounts: getEnclosureMountInputs({
+      enclosureName: component.name,
+      pcbBoard,
+      board,
+      root: root.firstChild ?? component,
+    }),
   }
+
+  const generatedElements = new Set(component.generatedElements)
+  const pcbGeometry = db
+    .subtree({ subcircuit_id: board.subcircuit_id })
+    .toArray()
+    .filter(
+      (element) =>
+        element.type.startsWith("pcb_") &&
+        !element.type.endsWith("_error") &&
+        !element.type.endsWith("_warning") &&
+        !generatedElements.has(element),
+    )
+  const inputSignature = JSON.stringify({
+    inputProblem,
+    showHiddenEdges: props.showHiddenEdges,
+    boardCenter: pcbBoard.center,
+    pcbGeometry,
+  })
+  if (component.lastEnclosureInput === inputSignature) return
 
   const solver = new CreateFdmEnclosureSolver(inputProblem)
   const solverConstructorArgs = solver.getConstructorParams()
@@ -83,11 +105,38 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
   }
 
   const output = solver.getOutput()
+  const previouslyHadKeepouts = component.generatedElements.some(
+    (element) => element.type === "pcb_keepout",
+  )
+  const previousBoard = component.generatedForBoard
+  component.clearGeneratedElements()
+  component.generatedForBoard = board
+  component.lastEnclosureInput = inputSignature
+
+  const reported = new Set<string>()
+  for (const violation of output.designRuleViolations) {
+    const message = `${component.name}: [${violation.rule}] ${violation.message}`
+    if (reported.has(message)) continue
+    reported.add(message)
+    if (violation.severity === "error") {
+      component.insertGeneratedElement({
+        type: "pcb_placement_error",
+        pcb_placement_error_id: `${component.source_component_id}_mechanical_${reported.size}`,
+        error_type: "pcb_placement_error",
+        message,
+        is_fatal: false,
+        subcircuit_id: board.subcircuit_id ?? undefined,
+      })
+    } else {
+      console.warn(message)
+    }
+  }
+
   db.pcb_component.update(component.pcb_component_id, {
     center: pcbBoard.center,
     width: output.dimensions.width,
     height: output.dimensions.height,
-  } as Partial<PcbComponent>)
+  })
 
   const position = {
     x: pcbBoard.center.x,
@@ -104,8 +153,11 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
   // synthetic enclosure source/PCB compatibility owner. The later typed schema
   // adds durable base/lid role names; this stage gives renderers two meshes but
   // intentionally does not infer a role from IDs or names.
-  const cadComponents = output.parts.map((part) =>
-    db.cad_component.insert({
+  for (const part of output.parts) {
+    const cadComponentId = `${component.source_component_id}_${part.id}`
+    component.insertGeneratedElement({
+      type: "cad_component",
+      cad_component_id: cadComponentId,
       position,
       rotation: { x: 0, y: 0, z: 0 },
       pcb_component_id: component.pcb_component_id!,
@@ -113,13 +165,43 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
       model_jscad: part.jscadPlan,
       model_unit_to_mm_scale_factor: 1,
       model_object_fit: "contain_within_bounds",
+      // Base and lid plans share the assembled enclosure origin.
+      model_origin_position: { x: 0, y: 0, z: 0 },
       model_origin_alignment: "bottom_center_of_component",
       anchor_alignment: "center",
       show_as_translucent_model: false,
       show_hidden_edges: props.showHiddenEdges,
-    }),
-  )
-  // PrimitiveComponent exposes one compatibility id; keep the first generated
-  // part there while the database remains the source of truth for both records.
-  component.cad_component_id = cadComponents[0]?.cad_component_id ?? null
+    })
+    component.cad_component_id ??= cadComponentId
+  }
+
+  emitEnclosureHardwareCadComponents({
+    component,
+    hardware: output.hardware,
+    enclosureOrigin: position,
+  })
+
+  for (const keepout of output.mountingKeepouts) {
+    component.insertGeneratedElement({
+      type: "pcb_keepout",
+      pcb_keepout_id: `${component.source_component_id}_${keepout.id}`,
+      shape: "circle",
+      // Solver points are board-relative, right-handed XY millimetres (+Z up).
+      center: {
+        x: pcbBoard.center.x + keepout.center.x,
+        y: pcbBoard.center.y + keepout.center.y,
+      },
+      radius: keepout.radius,
+      layers: [keepout.side],
+      description: keepout.description,
+      subcircuit_id: board.subcircuit_id ?? undefined,
+      pcb_group_id: board.pcb_group_id ?? undefined,
+    })
+  }
+  if (previouslyHadKeepouts || output.mountingKeepouts.length > 0) {
+    board._enclosureDrcNeedsRefresh = true
+    if (previousBoard && previousBoard !== board) {
+      previousBoard._enclosureDrcNeedsRefresh = true
+    }
+  }
 }
