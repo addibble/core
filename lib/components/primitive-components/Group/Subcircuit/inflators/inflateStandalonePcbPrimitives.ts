@@ -72,6 +72,7 @@ export function inflateStandalonePcbPrimitives(
       componentName: "",
       componentRotation: "0deg",
       referenceCircuitJson: injectionDb.toArray(),
+      importedExclusionScope: subcircuit.getGroup(),
     },
     standalonePrimitives,
   )

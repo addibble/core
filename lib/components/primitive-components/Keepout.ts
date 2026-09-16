@@ -1,5 +1,7 @@
 import { pcbKeepoutProps } from "@tscircuit/props"
 import type { PCBKeepout } from "circuit-json"
+import { selectAll } from "css-select"
+import { cssSelectPrimitiveComponentAdapter } from "../base-components/PrimitiveComponent/cssSelectPrimitiveComponentAdapter"
 import type { PcbComponentId } from "lib/utils/circuit-json/circuit-json-id-types"
 import { decomposeTSR } from "transformation-matrix"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
@@ -12,6 +14,8 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
   // Preserve an explicit imported exemption without retaining its old PCB ID.
   importedOwnerIsExcluded = false
   importedDescription?: PCBKeepout["description"]
+  importedExcludedRefs: string[] = []
+  importedExclusionScope?: PrimitiveComponent | null
 
   get config() {
     return {
@@ -32,6 +36,21 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
     const ownerId = this.getPrimitiveContainer()?.pcb_component_id
     if (this.importedOwnerIsExcluded && ownerId) {
       excludedPcbComponentIds.push(ownerId)
+    }
+    for (const selector of this.importedExcludedRefs) {
+      const matches = this.importedExclusionScope
+        ? selectAll(selector, this.importedExclusionScope, {
+            adapter: cssSelectPrimitiveComponentAdapter,
+          })
+        : this.getSubcircuit().selectAll(selector)
+      const matchedId =
+        matches.length === 1 ? matches[0]!.pcb_component_id : null
+      if (!matchedId) {
+        throw new Error(
+          `Cannot restore imported keepout exclusion "${selector}": expected exactly one rendered PCB component`,
+        )
+      }
+      excludedPcbComponentIds.push(matchedId)
     }
     return Array.from(new Set(excludedPcbComponentIds))
   }

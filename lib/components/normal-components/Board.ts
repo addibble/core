@@ -650,14 +650,8 @@ export class Board
 
   updateEnclosurePcbDesignRuleChecks(): void {
     if (!this._enclosureDrcNeedsRefresh || this._drcChecksInProgress) return
-    this._enclosureDrcNeedsRefresh = false
-    for (const diagnostic of this._generatedBoardDrcDiagnostics) {
-      this.root!.db[diagnostic.type].delete(getElementId(diagnostic))
-    }
-    this._generatedBoardDrcDiagnostics = []
-    this._drcChecksComplete = false
     // Refresh diagnostics only: placement and routing are intentionally not reset.
-    this.updatePcbDesignRuleChecks()
+    this.updatePcbDesignRuleChecks(true)
   }
 
   override runRenderPhase(phase: RenderPhase): void {
@@ -670,7 +664,7 @@ export class Board
     super.runRenderPhase(phase)
   }
 
-  updatePcbDesignRuleChecks() {
+  updatePcbDesignRuleChecks(refresh = false): boolean {
     const { db } = this.root!
 
     const routingDisabled =
@@ -723,7 +717,7 @@ export class Board
       (shouldRunRoutingChecks || shouldRunFabricatorChecks) &&
       this._hasIncompleteAsyncEffectsInSubtreeForPhase("PcbTraceRender")
     )
-      return
+      return false
 
     // Routing checks should only wait for child subcircuits when there are
     // traces that actually need routing. Otherwise placement/netlist DRC can run.
@@ -733,10 +727,15 @@ export class Board
       hasTracesToRoute &&
       !this._areChildSubcircuitsRouted()
     )
-      return
+      return false
 
     // Only run once after all configured checks are complete.
-    if (this._drcChecksComplete || this._drcChecksInProgress) return
+    if ((!refresh && this._drcChecksComplete) || this._drcChecksInProgress)
+      return false
+
+    const previousDiagnostics = new Set(
+      refresh ? this._generatedBoardDrcDiagnostics : [],
+    )
 
     const runDrcChecks = async (circuitJson: AnyCircuitElement[]) => {
       const checksToRun: Promise<AnyCircuitElement[]>[] = []
@@ -769,7 +768,9 @@ export class Board
       }
 
       if (shouldRunPlacementChecks) {
-        const existingPlacementDiagnostics = db.toArray()
+        const existingPlacementDiagnostics = db
+          .toArray()
+          .filter((diagnostic) => !previousDiagnostics.has(diagnostic))
         checksToRun.push(
           runAllPlacementChecks(circuitJson, {
             consolidateOverlaps: false,
@@ -819,30 +820,42 @@ export class Board
       }
 
       const checkResults = await Promise.all(checksToRun)
+      const replacementDiagnostics = consolidatePcbOverlapErrors(
+        circuitJson,
+        dedupePcbDrcErrors(checkResults.flat()),
+      ).filter(
+        (result) =>
+          !db
+            .toArray()
+            .some(
+              (existing) =>
+                !previousDiagnostics.has(existing) &&
+                existing.type === result.type &&
+                "message" in existing &&
+                "message" in result &&
+                existing.message === result.message,
+            ),
+      )
+      // Keep the last completed diagnostics visible until replacement succeeds.
+      for (const diagnostic of previousDiagnostics) {
+        db[diagnostic.type].delete(getElementId(diagnostic))
+      }
+      this._generatedBoardDrcDiagnostics =
+        this._generatedBoardDrcDiagnostics.filter(
+          (diagnostic) => !previousDiagnostics.has(diagnostic),
+        )
       this._generatedBoardDrcDiagnostics.push(
-        ...db.insertAll(
-          consolidatePcbOverlapErrors(
-            circuitJson,
-            dedupePcbDrcErrors(checkResults.flat()),
-          ).filter(
-            (result) =>
-              !db
-                .toArray()
-                .some(
-                  (existing) =>
-                    existing.type === result.type &&
-                    "message" in existing &&
-                    "message" in result &&
-                    existing.message === result.message,
-                ),
-          ),
-        ),
+        ...db.insertAll(replacementDiagnostics),
       )
     }
 
     const subcircuit = db.subtree({ subcircuit_id: this.subcircuit_id })
-    const subcircuitCircuitJson = subcircuit.toArray()
+    const subcircuitCircuitJson = subcircuit
+      .toArray()
+      .filter((diagnostic) => !previousDiagnostics.has(diagnostic))
 
+    if (refresh) this._enclosureDrcNeedsRefresh = false
+    this._drcChecksComplete = false
     this._drcChecksInProgress = true
     this._queueAsyncEffect("board:drc-checks", async () => {
       try {
@@ -852,6 +865,7 @@ export class Board
         this._drcChecksInProgress = false
       }
     })
+    return true
   }
 
   override runRenderPhaseForChildren(phase: RenderPhase): void {

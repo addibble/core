@@ -5,6 +5,7 @@ import {
   layer_ref,
   type AnyCircuitElement,
   type SchematicComponent,
+  type SourceGroup,
 } from "circuit-json"
 import { CopperText } from "lib/components/primitive-components/CopperText"
 import { CourtyardCircle } from "lib/components/primitive-components/CourtyardCircle"
@@ -119,6 +120,7 @@ export const createComponentsFromCircuitJson = (
     pinLabels,
     pcbPinLabels,
     referenceCircuitJson,
+    importedExclusionScope,
   }: {
     componentName: string
     componentRotation: string
@@ -126,6 +128,7 @@ export const createComponentsFromCircuitJson = (
     pinLabels?: PinLabelsProp
     pcbPinLabels?: PinLabelsProp
     referenceCircuitJson?: AnyCircuitElement[]
+    importedExclusionScope?: PrimitiveComponent | null
   },
   circuitJson: AnyCircuitElement[],
 ): PrimitiveComponent[] => {
@@ -499,26 +502,56 @@ export const createComponentsFromCircuitJson = (
             references.filter(
               (element) =>
                 element.type === "source_component" &&
-                element.name === sourceComponent.name,
+                element.name === sourceComponent.name &&
+                element.source_group_id === sourceComponent.source_group_id,
             ).length !== 1
           ) {
             throw new Error(
-              `Cannot restore keepout "${elm.pcb_keepout_id}" exclusion "${id}": expected a uniquely named source component`,
+              `Cannot restore keepout "${elm.pcb_keepout_id}" exclusion "${id}": expected a uniquely named source component within its group`,
             )
           }
-          return `[name=${JSON.stringify(sourceComponent.name)}]`
+          const selectorParts = [
+            `[name=${JSON.stringify(sourceComponent.name)}]`,
+          ]
+          // Full-CJ inflation recreates the source-group hierarchy, including
+          // sibling scopes that may legitimately repeat component names.
+          if (referenceCircuitJson) {
+            let groupId = sourceComponent.source_group_id
+            const visited = new Set<SourceGroup["source_group_id"]>()
+            while (groupId) {
+              const sourceGroup = references.find(
+                (element) =>
+                  element.type === "source_group" &&
+                  element.source_group_id === groupId,
+              )
+              if (
+                sourceGroup?.type !== "source_group" ||
+                visited.has(groupId)
+              ) {
+                throw new Error(
+                  `Cannot restore keepout "${elm.pcb_keepout_id}" exclusion "${id}": invalid source-group ancestry`,
+                )
+              }
+              visited.add(groupId)
+              const groupName = sourceGroup.name ?? `inflated_group_${groupId}`
+              selectorParts.unshift(`[name=${JSON.stringify(groupName)}]`)
+              groupId = sourceGroup.parent_source_group_id
+            }
+          }
+          return selectorParts.join(" > ")
         })
       const keepout = new Keepout({
         pcbX: elm.center.x,
         pcbY: elm.center.y,
         layers: elm.layers.map((layer) => layer_ref.parse(layer)),
-        excludeRefs,
         ...(elm.shape === "circle"
           ? { shape: "circle", radius: elm.radius }
           : { shape: "rect", width: elm.width, height: elm.height }),
       })
       keepout.importedOwnerIsExcluded =
         importedOwnerId !== undefined && excludedIds.includes(importedOwnerId)
+      keepout.importedExcludedRefs = excludeRefs
+      keepout.importedExclusionScope = importedExclusionScope
       keepout.importedDescription = elm.description
       components.push(keepout)
     } else if (elm.type === "pcb_hole" && elm.hole_shape === "circle") {
