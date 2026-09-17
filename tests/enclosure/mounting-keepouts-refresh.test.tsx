@@ -25,7 +25,10 @@ test("moving a part removes stale mounting DRC without deleting authored output 
   if (!(bottom instanceof NormalComponent))
     throw new Error("Expected bottom component")
   const oldErrors = [
-    ...checkPcbComponentOverKeepout(circuit.getCircuitJson()),
+    ...checkPcbComponentOverKeepout(
+      circuit.getCircuitJson(),
+      generatedKeepouts(),
+    ),
     ...checkPcbCopperOverKeepout(circuit.getCircuitJson()),
   ].filter((error) => error.message.includes("BOTTOM"))
   expect(oldErrors.length).toBeGreaterThan(0)

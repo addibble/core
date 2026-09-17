@@ -129,6 +129,7 @@ export class EnclosureFdmBox extends PrimitiveComponent<
     this.clearGeneratedElements()
     if (this.generatedForBoard) {
       this.generatedForBoard._enclosureDrcNeedsRefresh = true
+      this.generatedForBoard._generatedEnclosures.delete(this)
     }
     this.generatedForBoard = null
     this.lastEnclosureInput = null

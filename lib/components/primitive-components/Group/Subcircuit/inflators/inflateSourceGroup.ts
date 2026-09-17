@@ -44,7 +44,6 @@ export function inflateSourceGroup(
   // Create a Group instance
   const group = new Group(groupProps)
   group._isInflatedFromCircuitJson = true
-  group._isImportedSourceNameScope = sourceGroup.is_subcircuit ?? false
 
   // Set the source_group_id so the group can be found
   group.source_group_id = sourceGroup.source_group_id

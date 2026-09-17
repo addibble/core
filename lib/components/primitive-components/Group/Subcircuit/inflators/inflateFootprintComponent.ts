@@ -22,7 +22,6 @@ export const inflateFootprintComponent = (
     pcbComponent: pcbElm,
     db: injectionDb,
     componentName: normalComponent.name,
-    importedExclusionScope: inflatorContext.subcircuit.getGroup(),
   })
 
   if (primitives.length === 0) return null

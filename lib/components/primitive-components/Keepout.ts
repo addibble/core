@@ -1,7 +1,5 @@
 import { pcbKeepoutProps } from "@tscircuit/props"
 import type { PCBKeepout } from "circuit-json"
-import { selectAll } from "css-select"
-import { cssSelectPrimitiveComponentAdapter } from "../base-components/PrimitiveComponent/cssSelectPrimitiveComponentAdapter"
 import type { PcbComponentId } from "lib/utils/circuit-json/circuit-json-id-types"
 import { decomposeTSR } from "transformation-matrix"
 import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
@@ -11,11 +9,6 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
   pcb_keepout_id: string | null = null
 
   isPcbPrimitive = true
-  // Preserve an explicit imported exemption without retaining its old PCB ID.
-  importedOwnerIsExcluded = false
-  importedDescription?: PCBKeepout["description"]
-  importedExcludedRefs: string[] = []
-  importedExclusionScope?: PrimitiveComponent | null
 
   get config() {
     return {
@@ -33,25 +26,6 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
           .filter((id): id is PcbComponentId => id !== null),
       ) ?? []
 
-    const ownerId = this.getPrimitiveContainer()?.pcb_component_id
-    if (this.importedOwnerIsExcluded && ownerId) {
-      excludedPcbComponentIds.push(ownerId)
-    }
-    for (const selector of this.importedExcludedRefs) {
-      const matches = this.importedExclusionScope
-        ? selectAll(selector, this.importedExclusionScope, {
-            adapter: cssSelectPrimitiveComponentAdapter,
-          })
-        : this.getSubcircuit().selectAll(selector)
-      const matchedId =
-        matches.length === 1 ? matches[0]!.pcb_component_id : null
-      if (!matchedId) {
-        throw new Error(
-          `Cannot restore imported keepout exclusion "${selector}": expected exactly one rendered PCB component`,
-        )
-      }
-      excludedPcbComponentIds.push(matchedId)
-    }
     return Array.from(new Set(excludedPcbComponentIds))
   }
 
@@ -73,9 +47,6 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
     if (!layers) {
       layers = ["top"]
     }
-    const { maybeFlipLayer } = this._getPcbPrimitiveFlippedHelpers()
-    layers = layers.map(maybeFlipLayer)
-    const pcbComponentId = this.getPrimitiveContainer()?.pcb_component_id
     const excludedPcbComponentIds = this.getExcludedPcbComponentIds()
     const pcbKeepoutExclusionProps =
       excludedPcbComponentIds.length > 0
@@ -88,8 +59,6 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
         layers,
         shape: "circle",
         ...pcbKeepoutExclusionProps,
-        pcb_component_id: pcbComponentId ?? undefined,
-        description: this.importedDescription,
         // @ts-ignore: no idea why this is triggering
         radius: props.radius,
         center: {
@@ -104,8 +73,6 @@ export class Keepout extends PrimitiveComponent<typeof pcbKeepoutProps> {
         layers,
         shape: "rect",
         ...pcbKeepoutExclusionProps,
-        pcb_component_id: pcbComponentId ?? undefined,
-        description: this.importedDescription,
         ...(isRotated90
           ? { width: props.height, height: props.width }
           : { width: props.width, height: props.height }),

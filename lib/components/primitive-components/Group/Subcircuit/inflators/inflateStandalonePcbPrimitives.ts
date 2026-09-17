@@ -28,7 +28,6 @@ export function inflateStandalonePcbPrimitives(
     "pcb_hole",
     "pcb_plated_hole",
     "pcb_cutout",
-    "pcb_keepout",
   ]
 
   const standalonePrimitives = injectionDb.toArray().filter((elm) => {
@@ -56,7 +55,6 @@ export function inflateStandalonePcbPrimitives(
       // below requires the key to be present and would drop every cutout.
       return true
     }
-    if (elm.type === "pcb_keepout") return !elm.pcb_component_id
     // Check for null or undefined pcb_component_id
     return (
       "pcb_component_id" in elm &&
@@ -71,8 +69,6 @@ export function inflateStandalonePcbPrimitives(
     {
       componentName: "",
       componentRotation: "0deg",
-      referenceCircuitJson: injectionDb.toArray(),
-      importedExclusionScope: subcircuit.getGroup(),
     },
     standalonePrimitives,
   )

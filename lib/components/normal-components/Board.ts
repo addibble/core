@@ -1,4 +1,5 @@
 import {
+  checkPcbComponentOverKeepout,
   dedupePcbDrcErrors,
   consolidatePcbOverlapErrors,
   runAllNetlistChecks,
@@ -27,6 +28,7 @@ import { getViaDiameterDefaults } from "../../utils/pcbStyle/getViaDiameterDefau
 import { NormalComponent } from "../base-components/NormalComponent/NormalComponent"
 import type { RenderPhase } from "../base-components/Renderable"
 import { DrcCheck } from "../primitive-components/DrcCheck"
+import type { EnclosureFdmBox } from "../primitive-components/EnclosureFdmBox"
 import { Group } from "../primitive-components/Group/Group"
 import type { SubcircuitI } from "../primitive-components/Group/Subcircuit/SubcircuitI"
 import { Subcircuit_doInitialRenderIsolatedSubcircuits } from "../primitive-components/Group/Subcircuit/Subcircuit_doInitialRenderIsolatedSubcircuits"
@@ -642,6 +644,7 @@ export class Board
   }
 
   _enclosureDrcNeedsRefresh = false
+  _generatedEnclosures = new Set<EnclosureFdmBox>()
   _generatedBoardDrcDiagnostics: AnyCircuitElement[] = []
 
   doInitialEnclosurePcbDesignRuleChecks(): void {
@@ -655,6 +658,20 @@ export class Board
   }
 
   override runRenderPhase(phase: RenderPhase): void {
+    if (
+      phase === "EnclosurePcbDesignRuleChecks" &&
+      this._generatedEnclosures.size
+    ) {
+      // Removed children no longer participate in render phases. Retain their
+      // enclosure bookkeeping until this board can clear the generated output.
+      const attachedComponents = new Set(
+        this.root!.firstChild?.getDescendants(),
+      )
+      for (const enclosure of this._generatedEnclosures) {
+        if (!attachedComponents.has(enclosure))
+          enclosure.removeEnclosureRender()
+      }
+    }
     if (
       phase === "EnclosurePcbDesignRuleChecks" &&
       this._enclosureDrcNeedsRefresh
@@ -736,6 +753,13 @@ export class Board
     const previousDiagnostics = new Set(
       refresh ? this._generatedBoardDrcDiagnostics : [],
     )
+    const mountingKeepouts = refresh
+      ? [...this._generatedEnclosures].flatMap((enclosure) =>
+          enclosure.generatedElements.filter(
+            (element) => element.type === "pcb_keepout",
+          ),
+        )
+      : []
 
     const runDrcChecks = async (circuitJson: AnyCircuitElement[]) => {
       const checksToRun: Promise<AnyCircuitElement[]>[] = []
@@ -768,6 +792,13 @@ export class Board
       }
 
       if (shouldRunPlacementChecks) {
+        if (refresh) {
+          checksToRun.push(
+            Promise.resolve(
+              checkPcbComponentOverKeepout(circuitJson, mountingKeepouts),
+            ),
+          )
+        }
         const existingPlacementDiagnostics = db
           .toArray()
           .filter((diagnostic) => !previousDiagnostics.has(diagnostic))

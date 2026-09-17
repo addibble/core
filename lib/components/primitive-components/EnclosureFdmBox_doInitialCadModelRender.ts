@@ -110,6 +110,8 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
   )
   const previousBoard = component.generatedForBoard
   component.clearGeneratedElements()
+  previousBoard?._generatedEnclosures.delete(component)
+  board._generatedEnclosures.add(component)
   component.generatedForBoard = board
   component.lastEnclosureInput = inputSignature
 
@@ -185,7 +187,6 @@ export const EnclosureFdmBox_doInitialCadModelRender = (
     component.insertGeneratedElement({
       type: "pcb_keepout",
       pcb_keepout_id: `${component.source_component_id}_${keepout.id}`,
-      pcb_component_id: component.pcb_component_id,
       shape: "circle",
       // Solver points are board-relative, right-handed XY millimetres (+Z up).
       center: {

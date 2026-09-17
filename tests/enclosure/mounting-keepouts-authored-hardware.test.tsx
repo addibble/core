@@ -22,10 +22,6 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
     )
     const board = getReferencedEnclosureBoard(circuit.firstChild!, ".B1")
     expect(boss.subcircuit_id).toBe(board.subcircuit_id ?? undefined)
-    expect(circuit.db.pcb_component.get(boss.pcb_component_id!)).toMatchObject({
-      do_not_place: true,
-      obstructs_within_bounds: false,
-    })
     {
       const top = keepouts.find((keepout) => keepout.layers.includes("top"))
       if (top?.shape !== "circle")
@@ -42,7 +38,7 @@ test("authored screws, bolts, columns and spacers emit actual support keepouts a
       )
     }
     const circuitJson = circuit.getCircuitJson()
-    const componentErrors = checkPcbComponentOverKeepout(circuitJson)
+    const componentErrors = checkPcbComponentOverKeepout(circuitJson, keepouts)
     const copperErrors = checkPcbCopperOverKeepout(circuitJson)
     expect(componentErrors.length).toBeGreaterThan(0)
     expect(copperErrors.length).toBeGreaterThan(0)

@@ -18,12 +18,10 @@ export const extractPcbPrimitivesFromCircuitJson = ({
   pcbComponent,
   db,
   componentName,
-  importedExclusionScope,
 }: {
   pcbComponent: PcbComponent
   db: CircuitJsonUtilObjects
   componentName: string
-  importedExclusionScope?: PrimitiveComponent | null
 }): PrimitiveComponent[] => {
   // Get the component center and rotation to make primitive positions relative
   const componentCenter = pcbComponent.center || { x: 0, y: 0 }
@@ -60,8 +58,6 @@ export const extractPcbPrimitivesFromCircuitJson = ({
     {
       componentName,
       componentRotation: "0deg",
-      referenceCircuitJson: db.toArray(),
-      importedExclusionScope,
     },
     clonedRelativeElements,
   )

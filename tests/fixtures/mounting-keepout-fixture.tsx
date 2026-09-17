@@ -2,8 +2,10 @@ import {
   createFdmEnclosure,
   type CreateFdmEnclosureInput,
 } from "@tscircuit/create-fdm-enclosure"
-import type { EnclosureFdmBoxProps } from "@tscircuit/props"
+import type { EnclosureFdmBoxProps, PlatformConfig } from "@tscircuit/props"
 import { assembly, enclosure } from "lib"
+import { EnclosureFdmBox } from "lib/components"
+import { Fragment } from "react"
 import { getTestFixture } from "./get-test-fixture"
 
 export const getMountingKeepoutFixture = async ({
@@ -11,13 +13,17 @@ export const getMountingKeepoutFixture = async ({
   mountingKeepoutMargin,
   boardX = 100,
   boardY = 200,
+  bodyOnly = false,
+  platform,
 }: {
   kind?: "screw" | "bolt" | "column" | "spacer"
   mountingKeepoutMargin?: EnclosureFdmBoxProps["mountingKeepoutMargin"]
   boardX?: number
   boardY?: number
+  bodyOnly?: boolean
+  platform?: PlatformConfig
 } = {}) => {
-  const { circuit } = getTestFixture()
+  const { circuit } = getTestFixture({ platform })
   let solverInput: CreateFdmEnclosureInput | undefined
   let solveCount = 0
   circuit.on("solver:started", (event) => {
@@ -58,14 +64,18 @@ export const getMountingKeepoutFixture = async ({
             pcbX={3}
             footprint={
               <footprint>
-                <smtpad
-                  portHints={["1"]}
-                  pcbX={0}
-                  pcbY={0}
-                  width={0.8}
-                  height={0.8}
-                  shape="rect"
-                />
+                {(bodyOnly ? [-9, 9] : [0]).map((pcbX, index) => (
+                  <Fragment key={pcbX}>
+                    <smtpad
+                      portHints={[String(index + 1)]}
+                      pcbX={pcbX}
+                      pcbY={0}
+                      width={0.8}
+                      height={0.8}
+                      shape="rect"
+                    />
+                  </Fragment>
+                ))}
               </footprint>
             }
           />
@@ -84,12 +94,18 @@ export const getMountingKeepoutFixture = async ({
   )
   await circuit.renderUntilSettled()
   if (!solverInput) throw new Error("Expected an actual enclosure solve")
+  const enclosureBox = circuit.selectOne(".EN1")
+  if (!(enclosureBox instanceof EnclosureFdmBox))
+    throw new Error("Expected enclosure instance")
   return {
     circuit,
+    enclosureBox,
     solverInput,
     solverOutput: createFdmEnclosure(solverInput),
     getSolveCount: () => solveCount,
     generatedKeepouts: () =>
-      circuit.db.pcb_keepout.list().filter((keepout) => keepout.description),
+      enclosureBox.generatedElements.filter(
+        (element) => element.type === "pcb_keepout",
+      ),
   }
 }
