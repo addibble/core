@@ -22,6 +22,7 @@ test("assembly model strings emit modelcdn GLBs and retain assembly placement", 
         <cadmodel modelUrl="/washer.stl" pcbX={2} pcbZ={1} />
       </assembly.subassembly>
       <assembly.cadassembly name="alias" model="soic8" />
+      <assembly.device name="cad-device" cadModel="pinrow2" />
       <assembly.screen
         name="display"
         connectsTo=".B1 .J1"
@@ -43,6 +44,7 @@ test("assembly model strings emit modelcdn GLBs and retain assembly placement", 
     position: { x: 0, y: 0, z: 0 },
   })
   expect(cadFor("alias").model_glb_url).toBe(cadFor("product").model_glb_url)
+  expect(cadFor("cad-device").footprinter_string).toBe("pinrow2")
   expect(
     models.find((c) => c.model_glb_url?.includes("pinrow4"))?.model_glb_url,
   ).toBe("https://modelcdn.tscircuit.com/jscad_models/pinrow4_p2.54mm.glb")

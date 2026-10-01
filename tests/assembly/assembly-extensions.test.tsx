@@ -79,8 +79,6 @@ test("a screw carries the thread and a procurement designation", async () => {
           />
         </hole>
       </board>
-      {/* a self-tapping M3 needs a deeper boss than the 4mm default standoff */}
-      <enclosure.fdm.box name="EN1" boardRef=".B1" standoffHeight="6mm" />
     </assembly.device>,
   )
   await circuit.renderUntilSettled()

@@ -1,4 +1,5 @@
 import type { AssemblyScreen } from "./AssemblyScreen"
+import { isValidElement } from "react"
 import { renderAssemblyCadModel } from "./render-assembly-cad-model"
 import { resolveAssemblyPlacement } from "./resolve-assembly-placement"
 import { resolveAssemblyModel } from "./resolve-assembly-model"
@@ -26,11 +27,17 @@ export const AssemblyScreen_doInitialCadModelRender = (
   )
     return
   const placement = resolveAssemblyPlacement(component)
+  const model =
+    resolveAssemblyModel(component._parsedProps) ??
+    component._parsedProps.cadModel ??
+    getDefaultFlexScreenModel(component)
+  if (isValidElement(model)) {
+    throw new Error("assembly.screen cadModel does not accept React elements")
+  }
+  const renderableModel = model as Parameters<typeof renderAssemblyCadModel>[1]
   component.cad_component_id = renderAssemblyCadModel(
     component,
-    resolveAssemblyModel(component._parsedProps) ??
-      component._parsedProps.cadModel ??
-      getDefaultFlexScreenModel(component),
+    renderableModel,
     placement,
   )
 }

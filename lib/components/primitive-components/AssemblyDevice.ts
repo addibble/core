@@ -40,7 +40,8 @@ export class AssemblyDevice<
     // Model-less devices remain transparent containers with no source record.
     if (
       (this._parsedProps.modelUrl === undefined &&
-        this._parsedProps.model === undefined) ||
+        this._parsedProps.model === undefined &&
+        this._parsedProps.cadModel == null) ||
       !this.root
     )
       return
@@ -51,7 +52,8 @@ export class AssemblyDevice<
   }
 
   doInitialCadModelRender(): void {
-    const model = resolveAssemblyModel(this._parsedProps)
+    const model =
+      resolveAssemblyModel(this._parsedProps) ?? this._parsedProps.cadModel
     if (
       !this.root ||
       this.root.pcbDisabled ||

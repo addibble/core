@@ -1,6 +1,5 @@
 import { assemblyScreenProps } from "@tscircuit/props"
-import type { AssemblyDeviceContainer } from "../base-components/is-assembly-device-container"
-import { PrimitiveComponent } from "../base-components/PrimitiveComponent"
+import { AssemblyDevice } from "./AssemblyDevice"
 import { AssemblyScreen_doInitialCadModelRender } from "./AssemblyScreen_doInitialCadModelRender"
 
 /**
@@ -9,12 +8,7 @@ import { AssemblyScreen_doInitialCadModelRender } from "./AssemblyScreen_doIniti
  * A screen is a semantic assembly-device container, while retaining its
  * connector-relative placement and model rendering behavior.
  */
-export class AssemblyScreen
-  extends PrimitiveComponent<typeof assemblyScreenProps>
-  implements AssemblyDeviceContainer
-{
-  isAssemblyDeviceContainer = true as const
-
+export class AssemblyScreen extends AssemblyDevice<typeof assemblyScreenProps> {
   get config() {
     return {
       componentName: "AssemblyScreen",

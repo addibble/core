@@ -34,6 +34,10 @@ export const preprocessSelector = (
   return selector
     .replace(/ pin(?=[\d.])/g, " port")
     .replace(/ subcircuit\./g, " group[isSubcircuit=true]")
+    .replace(
+      /(^|[ >])assemblydevice(?=([.#[: >]|$))/g,
+      "$1:is(assemblydevice, assemblyscreen)",
+    )
     .replace(/([^ ])\>([^ ])/g, "$1 > $2")
     .replace(
       /(^|[ >])(?!pin\.)(?!port\.)(?!net\.)([A-Z][A-Za-z0-9_-]*)\.([A-Za-z0-9_-]+)/g,

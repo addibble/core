@@ -56,6 +56,8 @@ test("hardware CAD serializes the solver's full rigid matrix rather than its leg
   const cad = circuit.db.cad_component.getWhere({
     source_component_id: source.source_component_id,
   })!
+  if (!cad.pcb_component_id)
+    throw new Error("hardware CAD is missing its PCB frame")
   const pcb = circuit.db.pcb_component.get(cad.pcb_component_id)!
   expect(cad.position).toEqual({ x: 103, y: 204, z: 305 })
   expect(pcb.center).toEqual({ x: 103, y: 204 })
